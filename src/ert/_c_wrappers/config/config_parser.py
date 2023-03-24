@@ -90,7 +90,7 @@ class CombinedConfigError(ConfigValidationError):
 
     def add_error(self, error: Union[ConfigValidationError, "CombinedConfigError"]):
         if isinstance(error, CombinedConfigError):
-            self.errors.append(*error.errors)
+            self.errors += error.errors
         else:
             self.errors.append(error)
 
