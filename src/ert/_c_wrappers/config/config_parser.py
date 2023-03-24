@@ -75,9 +75,7 @@ class ConfigValidationError(ValueError):
 class CombinedConfigError(ConfigValidationError):
     def __init__(
         self,
-        errors: Optional[
-            List[Union[ConfigValidationError, "CombinedConfigError"]]
-        ] = None,
+        errors: Optional[List[ConfigValidationError]] = None,
     ):
         self.errors = []
 
