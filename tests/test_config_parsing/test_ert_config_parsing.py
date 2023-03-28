@@ -390,7 +390,7 @@ def test_that_unknown_run_mode_gives_config_validation_error():
         _ = ErtConfig._workflows_from_dict(
             content_dict, substitution_list, collected_errors=collected_errors
         )
-        ErtConfig.raise_collected_errors(collected_errors)
+        ConfigValidationError.raise_from_collected(collected_errors)
 
 
 @pytest.mark.usefixtures("set_site_config")

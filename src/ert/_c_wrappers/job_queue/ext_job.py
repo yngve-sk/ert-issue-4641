@@ -292,7 +292,7 @@ class ExtJob:
                 content_dict[handle + "_file"] = name + "." + handle
 
         if do_raise_errors:
-            cls.raise_collected_errors(collected_errors)
+            ConfigValidationError.raise_from_collected(collected_errors)
 
         return cls(
             name,
