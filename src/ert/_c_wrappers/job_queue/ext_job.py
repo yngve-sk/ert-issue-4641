@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from ert._c_wrappers.config import ConfigParser, ConfigValidationError, ContentTypeEnum
-from ert._c_wrappers.config.config_parser import CombinedConfigError
+from ert._c_wrappers.config.config_parser import ErrorInfo
 from ert._c_wrappers.util import SubstitutionList
 from ert._clib.job_kw import type_from_kw
 
@@ -45,7 +45,9 @@ class ExtJob:
     help_text: str = ""
 
     @staticmethod
-    def _resolve_executable(executable, name, config_file_location):
+    def _resolve_executable(
+        executable, name, config_file_location, collected_errors: List[ErrorInfo]
+    ):
         """
         :returns: The resolved path to the executable
 
@@ -69,23 +71,32 @@ class ExtJob:
             resolved = shutil.which(executable)
 
         if resolved is None:
-            raise ConfigValidationError(
-                config_file=config_file_location,
-                errors=f"Could not find executable {executable!r} for job {name!r}",
+            collected_errors.append(
+                ErrorInfo(
+                    filename=config_file_location,
+                    message=f"Could not find executable {executable!r} "
+                    f"for job {name!r}",
+                )
             )
 
-        if not os.access(resolved, os.X_OK):  # is not executable
-            raise ConfigValidationError(
-                config_file=config_file_location,
-                errors=f"ExtJob {name!r} with executable"
-                f" {resolved!r} does not have execute permissions",
+        elif not os.access(resolved, os.X_OK):  # is not executable
+            collected_errors.append(
+                ErrorInfo(
+                    filename=config_file_location,
+                    message=f"ExtJob {name!r} with executable"
+                    f" {resolved!r} does not have execute permissions",
+                )
             )
 
-        if os.path.isdir(resolved):
-            raise ConfigValidationError(
-                config_file=config_file_location,
-                errors=f"ExtJob {name!r} has executable set to directory {resolved!r}",
+        elif os.path.isdir(resolved):
+            collected_errors.append(
+                ErrorInfo(
+                    filename=config_file_location,
+                    message=f"ExtJob {name!r} has executable "
+                    f"set to directory {resolved!r}",
+                )
             )
+            return
 
         return resolved
 
@@ -171,33 +182,58 @@ class ExtJob:
             return []
 
     @classmethod
-    def from_config_file(cls, config_file: str, name: Optional[str] = None):
+    def from_config_file(
+        cls,
+        config_file: str,
+        collected_errors: Optional[List[ErrorInfo]] = None,
+        name: Optional[str] = None,
+    ):
+        do_raise_errors = False
+        if collected_errors is None:
+            collected_errors = []
+            do_raise_errors = True
+
         if name is None:
             name = os.path.basename(config_file)
         try:
             config_content = cls._parse_config_file(config_file)
-        except CombinedConfigError as conf_err:
+        except ConfigValidationError as conf_err:
             err_msg = "Item:EXECUTABLE must be set - parsing"
-            matching_error = conf_err.find_matching_error(match=err_msg)
+            is_matching_error = err_msg in str(conf_err)
 
-            if matching_error is None:
-                raise conf_err from None
+            if is_matching_error:
+                # raise conf_err from None
+                collected_errors.append(
+                    ErrorInfo(
+                        message="Unidentified error message, expected match for"
+                        "*Item:EXECUTABLE must be set - parsing*",
+                        filename=config_file,
+                    )
+                )
             with open(config_file, encoding="utf-8") as f:
                 if "PORTABLE_EXE " in f.read():
-                    conf_err.add_error(
-                        matching_error.replace(
-                            err_msg,
-                            '"PORTABLE_EXE" key is deprecated, '
+                    collected_errors.append(
+                        ErrorInfo(
+                            message='"PORTABLE_EXE" key is deprecated, '
                             'please replace with "EXECUTABLE" in',
+                            filename=config_file,
                         )
                     )
+            if do_raise_errors:
+                ConfigValidationError.raise_from_collected(collected_errors)
+            return
 
-            raise conf_err
         except IOError as err:
-            raise ConfigValidationError(
-                config_file=config_file,
-                errors=f"Could not open job config file {config_file!r}",
-            ) from err
+            collected_errors.append(
+                ErrorInfo(
+                    message=f"Could not open job config file {config_file!r}:"
+                    f"{str(err)}",
+                    filename=config_file,
+                )
+            )
+            if do_raise_errors:
+                ConfigValidationError.raise_from_collected(collected_errors)
+            return
 
         logger.info(
             "Content of job config %s: %s",
@@ -243,7 +279,10 @@ class ExtJob:
                 content_dict["default_mapping"][key] = value
 
         content_dict["executable"] = ExtJob._resolve_executable(
-            content_dict["executable"], name, os.path.dirname(config_file)
+            content_dict["executable"],
+            name,
+            os.path.dirname(config_file),
+            collected_errors=collected_errors,
         )
 
         # The default for stdout_file and stdin_file is
@@ -251,6 +290,9 @@ class ExtJob:
         for handle in ("stdout", "stderr"):
             if handle + "_file" not in content_dict:
                 content_dict[handle + "_file"] = name + "." + handle
+
+        if do_raise_errors:
+            cls.raise_collected_errors(collected_errors)
 
         return cls(
             name,
