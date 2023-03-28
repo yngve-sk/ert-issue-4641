@@ -146,11 +146,11 @@ def test_that_queue_config_dict_negative_value_invalid(
             ["LSF", "MAX_RUNNING", "-6"],
         )
 
-    with pytest.raises(
-        expected_exception=ConfigValidationError,
-        match="QUEUE_OPTION LSF MAX_RUNNING is negative",
-    ):
-        ErtConfig.from_dict(config_dict)
+        with pytest.raises(
+            expected_exception=ConfigValidationError,
+            match="QUEUE_OPTION LSF MAX_RUNNING is negative",
+        ):
+            ErtConfig.from_dict(config_dict)
 
 
 @pytest.mark.usefixtures("use_tmpdir")

@@ -117,19 +117,9 @@ class ErtConfig:
         config_file = substitution_list.get("<CONFIG_FILE>", "no_config")
         config_file_path = os.path.join(config_dir, config_file)
 
-        validate_dict_errors = []
         ErtConfig._validate_dict(
-            config_dict, config_file, collected_errors=validate_dict_errors
+            config_dict, config_file, collected_errors=collected_errors
         )
-
-        # Stop if config_dict is invalid
-        if len(validate_dict_errors) > 0:
-            collected_errors += validate_dict_errors
-
-            if do_raise_errors:
-                ConfigValidationError.raise_from_collected(collected_errors)
-
-            return None
 
         ensemble_config = EnsembleConfig.from_dict(config_dict=config_dict)
         ErtConfig._validate_ensemble_config(
