@@ -133,6 +133,11 @@ class BoolToken:
     def __eq__(self, other):
         return bool(self) == bool(other)
 
+    def __deepcopy__(self, memo):
+        new_instance = BoolToken(bool(self), self.token)
+        memo[id(self)] = new_instance
+        return new_instance
+
 
 class IntToken(int):
     def __new__(cls, val: int, token: FileContextToken):
@@ -140,12 +145,22 @@ class IntToken(int):
         obj.token = token
         return obj
 
+    def __deepcopy__(self, memo):
+        new_instance = IntToken(int(self), self.token)
+        memo[id(self)] = new_instance
+        return new_instance
+
 
 class FloatToken(float):
     def __new__(cls, val: float, token: FileContextToken):
         obj = super().__new__(cls, val)
         obj.token = token
         return obj
+
+    def __deepcopy__(self, memo):
+        new_instance = FloatToken(float(self), self.token)
+        memo[id(self)] = new_instance
+        return new_instance
 
 
 class StringToken(str):
