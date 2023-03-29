@@ -83,7 +83,9 @@ class ErtConfig:
         collected_errors: List[ErrorInfo] = []
 
         user_config_dict = ErtConfig.read_user_config(
-            user_config_file, use_new_parser=use_new_parser
+            user_config_file,
+            use_new_parser=use_new_parser,
+            collected_errors=collected_errors,
         )
 
         config_dir = os.path.abspath(os.path.dirname(user_config_file))
@@ -263,9 +265,13 @@ class ErtConfig:
         ).suggest_migrations(config_file)
 
     @classmethod
-    def read_site_config(cls, use_new_parser: bool = USE_NEW_PARSER_BY_DEFAULT):
+    def read_site_config(
+        cls,
+        collected_errors: List[ErrorInfo],
+        use_new_parser: bool = USE_NEW_PARSER_BY_DEFAULT,
+    ):
         if use_new_parser:
-            return lark_parse(site_config_location())
+            return lark_parse(site_config_location(), collected_errors=collected_errors)
         else:
             site_config_parser = ConfigParser()
             init_site_config_parser(site_config_parser)
@@ -274,11 +280,18 @@ class ErtConfig:
 
     @classmethod
     def read_user_config(
-        cls, user_config_file, use_new_parser: bool = USE_NEW_PARSER_BY_DEFAULT
+        cls,
+        user_config_file,
+        collected_errors: List[ErrorInfo],
+        use_new_parser: bool = USE_NEW_PARSER_BY_DEFAULT,
     ):
-        site_config = cls.read_site_config(use_new_parser=use_new_parser)
+        site_config = cls.read_site_config(
+            use_new_parser=use_new_parser, collected_errors=collected_errors
+        )
         if use_new_parser:
-            return lark_parse(user_config_file, site_config)
+            return lark_parse(
+                user_config_file, site_config, collected_errors=collected_errors
+            )
         else:
             user_config_parser = ErtConfig._create_user_config_parser()
             user_config_content = user_config_parser.parse(
