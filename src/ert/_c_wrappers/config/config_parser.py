@@ -1,5 +1,5 @@
 import os.path
-from dataclasses import dataclass
+from dataclasses import InitVar, dataclass
 from typing import List, Optional
 
 from cwrap import BaseCClass
@@ -20,6 +20,17 @@ class ErrorInfo:
     end_line: Optional[int] = None
     end_column: Optional[int] = None
     end_pos: Optional[int] = None
+    token: InitVar[Optional["FileContextToken"]] = None
+
+    def __post_init__(self, token: Optional["FileContextToken"]):
+        if token is not None:
+            self.start_pos = token.start_pos
+            self.line = token.line
+            self.column = token.column
+            self.end_line = token.end_line
+            self.end_column = token.end_column
+            self.end_pos = token.end_pos
+        pass
 
 
 class ConfigWarning(UserWarning):

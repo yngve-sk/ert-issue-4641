@@ -315,9 +315,10 @@ class ErtConfig:
             if option_name == "MAX_RUNNING" and int(*values) < 0:
                 collected_errors.append(
                     ErrorInfo(
-                        filename="TODO",
+                        filename=config_path,
                         message=f"QUEUE_OPTION {queue_name} MAX_RUNNING is negative: "
                         f"{str(*values)!r}",
+                        token=values[0].token,
                     )
                 )
 
@@ -360,12 +361,9 @@ class ErtConfig:
                 )
             )
 
-        try:
-            cls._validate_queue_option_max_running(
-                config_file, config_dict, collected_errors
-            )
-        except ConfigValidationError as err:
-            collected_errors.append(ErrorInfo(message=str(err), filename=config_file))
+        cls._validate_queue_option_max_running(
+            config_file, config_dict, collected_errors
+        )
 
     @classmethod
     def _validate_ensemble_config(

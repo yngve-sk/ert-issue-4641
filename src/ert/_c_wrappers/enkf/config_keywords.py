@@ -119,6 +119,42 @@ CONFIG_DEFAULT_ARG_MIN = -1
 ALIASES = {NUM_REALIZATIONS_KEY: ["NUM_REALISATIONS"]}
 
 
+class BoolToken:
+    def __init__(self, val: bool, token: str):
+        self.val = val
+        self.token = token
+
+    def __str__(self):
+        return bool(self.val)
+
+    def __bool__(self):
+        return bool(self.val)
+
+    def __eq__(self, other):
+        return bool(self) == bool(other)
+
+
+class IntToken(int):
+    def __new__(cls, val: int, token: FileContextToken):
+        obj = super().__new__(cls, val)
+        obj.token = token
+        return obj
+
+
+class FloatToken(float):
+    def __new__(cls, val: float, token: FileContextToken):
+        obj = super().__new__(cls, val)
+        obj.token = token
+        return obj
+
+
+class StringToken(str):
+    def __new__(cls, val: str, token: FileContextToken):
+        obj = super().__new__(cls, val)
+        obj.token = token
+        return obj
+
+
 class SchemaType(Enum):
     CONFIG_STRING = (1,)
     CONFIG_INT = (2,)
@@ -178,20 +214,20 @@ class SchemaItem(BaseModel):
                 config_file=val.filename,
             )
 
-    def convert(
+    def token_to_value_with_context(
         self, token: FileContextToken, index: int
     ) -> Optional[Union[str, int, float]]:
         self.check_valid(token, index)
         if not len(self.type_map) > index:
-            return token
+            return StringToken(str(token), token)
         val_type = self.type_map[index]
         if val_type is None:
-            return token
+            return StringToken(str(token), token)
         if val_type == SchemaType.CONFIG_BOOL:
             if token.lower() == "true":
-                return True
+                return BoolToken(True, token)
             elif token.lower() == "false":
-                return False
+                return BoolToken(False, token)
             else:
                 raise ConfigValidationError(
                     f"{self.kw!r} must have a boolean value"
@@ -200,7 +236,7 @@ class SchemaItem(BaseModel):
                 ) from None
         if val_type == SchemaType.CONFIG_INT:
             try:
-                return int(token)
+                return IntToken(int(token), token)
             except ValueError:
                 raise ConfigValidationError(
                     f"{self.kw!r} must have an integer value"
@@ -209,7 +245,7 @@ class SchemaItem(BaseModel):
                 ) from None
         if val_type == SchemaType.CONFIG_FLOAT:
             try:
-                return float(token)
+                return FloatToken(float(token), token)
             except ValueError:
                 raise ConfigValidationError(
                     f"{self.kw!r} must have a number as argument {index + 1!r}",
@@ -226,7 +262,7 @@ class SchemaItem(BaseModel):
                 if path != token:
                     err += f"The configured value was {path!r} "
                 raise ConfigValidationError(err, config_file=token.filename)
-            return path
+            return StringToken(path, token)
         if val_type == SchemaType.CONFIG_EXECUTABLE:
             path = str(token)
             if not os.path.isabs(token) and not os.path.exists(token):
@@ -246,12 +282,14 @@ class SchemaItem(BaseModel):
                     f"File not executable: {context}",
                     config_file=token.filename,
                 )
-            return path
-        return str(token)
+            return StringToken(path, token)
+        return StringToken(str(token), token)
 
     def apply_constraints(self, args: List[Any]) -> Union[List[Any], Any]:
         args = [
-            self.convert(x, i) if isinstance(x, FileContextToken) else x
+            self.token_to_value_with_context(x, i)
+            if isinstance(x, FileContextToken)
+            else x
             for i, x in enumerate(args)
         ]
         if self.argc_min != -1 and len(args) < self.argc_min:
