@@ -78,14 +78,18 @@ class ErtConfig:
     def from_file(
         cls,
         user_config_file,
+        collected_errors: List[ErrorInfo] = None,
         use_new_parser: bool = USE_NEW_PARSER_BY_DEFAULT,
     ) -> "ErtConfig":
-        collected_errors: List[ErrorInfo] = []
+        do_raise_errors = False
+        if collected_errors is None:
+            collected_errors = []
+            do_raise_errors = True
 
         user_config_dict = ErtConfig.read_user_config(
             user_config_file,
-            use_new_parser=use_new_parser,
             collected_errors=collected_errors,
+            use_new_parser=use_new_parser,
         )
 
         config_dir = os.path.abspath(os.path.dirname(user_config_file))
@@ -94,7 +98,8 @@ class ErtConfig:
         ErtConfig.apply_config_content_defaults(user_config_dict, config_dir)
 
         the_config = ErtConfig.from_dict(user_config_dict, collected_errors)
-        ConfigValidationError.raise_from_collected(collected_errors)
+        if do_raise_errors:
+            ConfigValidationError.raise_from_collected(collected_errors)
 
         return the_config
 
@@ -290,7 +295,9 @@ class ErtConfig:
         )
         if use_new_parser:
             return lark_parse(
-                user_config_file, site_config, collected_errors=collected_errors
+                file=user_config_file,
+                collected_errors=collected_errors,
+                site_config=site_config,
             )
         else:
             user_config_parser = ErtConfig._create_user_config_parser()
