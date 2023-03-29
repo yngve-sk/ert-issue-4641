@@ -1,6 +1,6 @@
 import os.path
 from dataclasses import InitVar, dataclass
-from typing import List, Optional
+from typing import List, Optional, Protocol
 
 from cwrap import BaseCClass
 from ecl.util.util import StringHash
@@ -8,6 +8,10 @@ from ecl.util.util import StringHash
 from ert._c_wrappers import ResPrototype
 from ert._c_wrappers.config.config_content import ConfigContent
 from ert._c_wrappers.config.unrecognized_enum import UnrecognizedEnum
+
+
+class MaybeWithToken(Protocol):
+    token: Optional["FileContextToken"]
 
 
 @dataclass
@@ -20,10 +24,11 @@ class ErrorInfo:
     end_line: Optional[int] = None
     end_column: Optional[int] = None
     end_pos: Optional[int] = None
-    token: InitVar[Optional["FileContextToken"]] = None
+    originates_from: InitVar[MaybeWithToken] = None
 
-    def __post_init__(self, token: Optional["FileContextToken"]):
-        if token is not None:
+    def __post_init__(self, originates_from: MaybeWithToken):
+        if originates_from is not None and hasattr(originates_from, "token"):
+            token = originates_from.token
             self.start_pos = token.start_pos
             self.line = token.line
             self.column = token.column

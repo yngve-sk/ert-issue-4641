@@ -318,7 +318,7 @@ class ErtConfig:
                         filename=config_path,
                         message=f"QUEUE_OPTION {queue_name} MAX_RUNNING is negative: "
                         f"{str(*values)!r}",
-                        token=values[0].token,
+                        originates_from=values[0],
                     )
                 )
 
