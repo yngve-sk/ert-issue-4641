@@ -19,7 +19,7 @@ from ert._c_wrappers.config.config_parser import (
 from ert._c_wrappers.enkf.analysis_config import AnalysisConfig
 from ert._c_wrappers.enkf.config_keys import ConfigKeys
 from ert._c_wrappers.enkf.ensemble_config import EnsembleConfig
-from ert._c_wrappers.enkf.enums import ErtImplType, HookRuntime
+from ert._c_wrappers.enkf.enums import HookRuntime
 from ert._c_wrappers.enkf.model_config import ModelConfig
 from ert._c_wrappers.enkf.queue_config import QueueConfig
 from ert._c_wrappers.job_queue import (
