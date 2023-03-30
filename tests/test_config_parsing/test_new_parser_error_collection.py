@@ -118,3 +118,34 @@ GEN_KW KW_NAME template.txt kw.txt priors.txt FORWARD_INIT:True INIT_FILES:custo
     assert error.line == 4
     assert error.column == 47
     assert error.end_column == 64
+
+
+@pytest.mark.usefixtures("use_tmpdir")
+def test_info_missing_forward_model_job(tmp_path):
+    with open(test_config_file_name, "w", encoding="utf-8") as fh:
+        fh.write(
+            """
+JOBNAME my_name%d
+NUM_REALIZATIONS 1
+FORWARD_MODEL ECLIPSE9001
+"""
+        )
+
+    with open("template.txt", mode="w", encoding="utf-8") as fh:
+        fh.writelines("MY_KEYWORD <MY_KEYWORD>")
+
+    with open("priors.txt", mode="w", encoding="utf-8") as fh:
+        fh.writelines("MY_KEYWORD NORMAL 0 1")
+
+    collected_errors = []
+    ErtConfig.from_file(
+        test_config_file_name,
+        use_new_parser=True,
+        collected_errors=collected_errors,
+    )
+
+    error: ErrorInfo = collected_errors[0]
+    assert error.filename == test_config_file_name
+    assert error.line == 4
+    assert error.column == 15
+    assert error.end_column == 26

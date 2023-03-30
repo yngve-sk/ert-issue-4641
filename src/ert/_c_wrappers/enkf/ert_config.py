@@ -438,10 +438,12 @@ class ErtConfig:
 
         for job_as_list in config_dict.get(ConfigKeys.FORWARD_MODEL, []):
             if len(job_as_list) > 1:
-                unsubstituted_job_name, args = job_as_list
+                unsubstituted_job_name: PrimitiveWithContext = job_as_list[0]
+                args = job_as_list[1]
             else:
-                unsubstituted_job_name = job_as_list[0]
+                unsubstituted_job_name: PrimitiveWithContext = job_as_list[0]
                 args = []
+
             job_name = substitution_list.substitute(unsubstituted_job_name)
             try:
                 job = copy.deepcopy(installed_jobs[job_name])
@@ -454,6 +456,7 @@ class ErtConfig:
                             f"{list(installed_jobs.keys())!r}"
                         ),
                         filename=config_file,
+                        originates_from=unsubstituted_job_name,
                     )
                 )
                 continue
