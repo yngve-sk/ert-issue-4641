@@ -131,7 +131,9 @@ class ErtConfig:
 
         ensemble_config = EnsembleConfig.from_dict(config_dict=config_dict)
         ErtConfig._validate_ensemble_config(
-            ensemble_config, config_file, collected_errors=collected_errors
+            config_file,
+            collected_errors=collected_errors,
+            config_dict=config_dict,
         )
         model_config = ModelConfig.from_dict(ensemble_config.refcase, config_dict)
         runpath = model_config.runpath_format_string
@@ -375,27 +377,51 @@ class ErtConfig:
     @classmethod
     def _validate_ensemble_config(
         cls,
-        ensemble_config,
         config_path,
         collected_errors: List[ErrorInfo],
+        config_dict,
     ):
-        for key in ensemble_config.getKeylistFromImplType(ErtImplType.GEN_KW):
-            if ensemble_config.getNode(key).getUseForwardInit():
+        def find_arg(key: str, startswith: str):
+            all_arglists = [x for x in config_dict["GEN_KW"] if x[0] == key]
+
+            if len(all_arglists) > 1:
+                raise ConfigValidationError(f"Found two GEN_KW {key} declarations")
+
+            first_arglist = all_arglists[0]
+            init_files_arg = next(
+                (
+                    x
+                    for x in first_arglist
+                    if x.strip().lower().startswith(startswith.lower())
+                ),
+                None,
+            )
+
+            return init_files_arg
+
+        kwlist = list(set([x[0] for x in config_dict.get("GEN_KW", [])]))
+
+        for key in kwlist:
+            use_fwd_init_token = find_arg(key, "FORWARD_INIT:TRUE")
+
+            if use_fwd_init_token is not None:
                 collected_errors.append(
                     ErrorInfo(
                         filename=config_path,
                         message="Loading GEN_KW from files created by the forward "
                         "model is not supported.",
+                        originates_from=use_fwd_init_token,
                     )
                 )
-            if (
-                ensemble_config.getNode(key).get_init_file_fmt() is not None
-                and "%" not in ensemble_config.getNode(key).get_init_file_fmt()
-            ):
+
+            init_files_token = find_arg(key, "INIT_FILES:")
+
+            if init_files_token is not None and "%" not in init_files_token:
                 collected_errors.append(
                     ErrorInfo(
                         filename=config_path,
                         message="Loading GEN_KW from files requires %d in file format",
+                        originates_from=init_files_token,
                     )
                 )
 
