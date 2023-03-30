@@ -35,6 +35,7 @@ from ert._clib.config_keywords import init_site_config_parser, init_user_config_
 
 from ._config_content_as_dict import config_content_as_dict
 from ._deprecation_migration_suggester import DeprecationMigrationSuggester
+from .config_keywords import PrimitiveWithContext
 from .lark_parser import parse as lark_parse
 
 logger = logging.getLogger(__name__)
@@ -353,11 +354,17 @@ class ErtConfig:
             )
 
         if ConfigKeys.SUMMARY in config_dict and ConfigKeys.ECLBASE not in config_dict:
+            summary_arglists: List[PrimitiveWithContext] = config_dict[
+                ConfigKeys.SUMMARY
+            ]
+            first_summary_arglist = summary_arglists[0]
+            first_summary_arg = first_summary_arglist[0]
             collected_errors.append(
                 ErrorInfo(
                     message="When using SUMMARY keyword, the config must "
                     "also specify ECLBASE",
                     filename=config_file,
+                    originates_from_keyword=first_summary_arg,
                 )
             )
 

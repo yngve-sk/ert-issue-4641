@@ -43,20 +43,20 @@ QUEUE_OPTION LOCAL MAX_RUNNING -4
 
 
 def test_info_summary_given_without_eclbase_gives_error(tmp_path):
-    (tmp_path / "config.ert").write_text("NUM_REALIZATIONS 1\nSUMMARY summary")
-    with pytest.raises(
-        expected_exception=ConfigValidationError,
-        match="When using SUMMARY keyword, the config must also specify ECLBASE",
-    ):
-        collected_errors = []
-        ErtConfig.from_file(
-            str(tmp_path / "config.ert"),
-            collected_errors=collected_errors,
-            use_new_parser=True,
-        )
+    (tmp_path / "config.ert").write_text(
+        """NUM_REALIZATIONS 1
+SUMMARY summary"""
+    )
 
-        error: ErrorInfo = collected_errors[0]
+    collected_errors = []
+    ErtConfig.from_file(
+        str(tmp_path / "config.ert"),
+        collected_errors=collected_errors,
+        use_new_parser=True,
+    )
 
-        assert error.line == 1
-        assert error.column == 1
-        assert error.end_column == 8
+    error: ErrorInfo = collected_errors[0]
+
+    assert error.line == 2
+    assert error.column == 1
+    assert error.end_column == 8

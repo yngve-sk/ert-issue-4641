@@ -14,6 +14,10 @@ class MaybeWithToken(Protocol):
     token: Optional["FileContextToken"]
 
 
+class MaybeWithKeywordToken(Protocol):
+    keyword_token: Optional["FileContextToken"]
+
+
 @dataclass
 class ErrorInfo:
     filename: str
@@ -25,10 +29,22 @@ class ErrorInfo:
     end_column: Optional[int] = None
     end_pos: Optional[int] = None
     originates_from: InitVar[MaybeWithToken] = None
+    originates_from_keyword: InitVar[MaybeWithKeywordToken] = None
 
-    def __post_init__(self, originates_from: MaybeWithToken):
-        if originates_from is not None and hasattr(originates_from, "token"):
+    def __post_init__(
+        self,
+        originates_from: Optional[MaybeWithToken],
+        originates_from_keyword: Optional[MaybeWithKeywordToken],
+    ):
+        token = None
+        if originates_from_keyword is not None and hasattr(
+            originates_from_keyword, "keyword_token"
+        ):
+            token = originates_from_keyword.keyword_token
+        elif originates_from is not None and hasattr(originates_from, "token"):
             token = originates_from.token
+
+        if token is not None:
             self.start_pos = token.start_pos
             self.line = token.line
             self.column = token.column

@@ -1,7 +1,7 @@
 import os
 import shutil
 from enum import Enum
-from typing import Any, List, Mapping, Optional, Union
+from typing import Any, List, Mapping, Optional, Protocol, Union
 
 from pydantic import BaseModel
 
@@ -120,9 +120,10 @@ ALIASES = {NUM_REALIZATIONS_KEY: ["NUM_REALISATIONS"]}
 
 
 class BoolToken:
-    def __init__(self, val: bool, token: str):
+    def __init__(self, val: bool, token: str, keyword_token: FileContextToken):
         self.val = val
         self.token = token
+        self.keyword_token = keyword_token
 
     def __str__(self):
         return bool(self.val)
@@ -139,10 +140,30 @@ class BoolToken:
         return new_instance
 
 
+class PrimitiveWithContext(Protocol):
+    token: FileContextToken
+    keyword_token: FileContextToken
+
+    @classmethod
+    def __subclasshook__(cls, subclass):
+        allowed_subclasses = (IntToken, FloatToken, StringToken, BoolToken)
+        allowed_attrs = ["token", "keyword_token"]
+
+        if all(hasattr(subclass, x) for x in allowed_attrs) and isinstance(
+            subclass, allowed_subclasses
+        ):
+            return True
+
+        return NotImplemented
+
+
 class IntToken(int):
-    def __new__(cls, val: int, token: FileContextToken):
+    def __new__(
+        cls, val: int, token: FileContextToken, keyword_token: FileContextToken
+    ):
         obj = super().__new__(cls, val)
         obj.token = token
+        obj.keyword_token = keyword_token
         return obj
 
     def __deepcopy__(self, memo):
@@ -152,9 +173,12 @@ class IntToken(int):
 
 
 class FloatToken(float):
-    def __new__(cls, val: float, token: FileContextToken):
+    def __new__(
+        cls, val: float, token: FileContextToken, keyword_token: FileContextToken
+    ):
         obj = super().__new__(cls, val)
         obj.token = token
+        obj.keyword_token = keyword_token
         return obj
 
     def __deepcopy__(self, memo):
@@ -164,9 +188,12 @@ class FloatToken(float):
 
 
 class StringToken(str):
-    def __new__(cls, val: str, token: FileContextToken):
+    def __new__(
+        cls, val: str, token: FileContextToken, keyword_token: FileContextToken
+    ):
         obj = super().__new__(cls, val)
         obj.token = token
+        obj.keyword_token = keyword_token
         return obj
 
 
@@ -230,19 +257,29 @@ class SchemaItem(BaseModel):
             )
 
     def token_to_value_with_context(
-        self, token: FileContextToken, index: int
-    ) -> Optional[Union[str, int, float]]:
+        self, token: FileContextToken, index: int, keyword: FileContextToken
+    ) -> Optional[PrimitiveWithContext]:
+        """
+        Converts a FileContextToken to a typed primitive that
+        behaves like a primitive, but also contains its location in the file,
+        as well the keyword it pertains to and its location in the file.
+
+        :param token: the token to be converted
+        :param index: the index of the token
+        :param keyword: the keyword it pertains to
+        :return: The token as a primitive with context of itself and its keyword
+        """
         self.check_valid(token, index)
         if not len(self.type_map) > index:
-            return StringToken(str(token), token)
+            return StringToken(str(token), token, keyword)
         val_type = self.type_map[index]
         if val_type is None:
-            return StringToken(str(token), token)
+            return StringToken(str(token), token, keyword)
         if val_type == SchemaType.CONFIG_BOOL:
             if token.lower() == "true":
-                return BoolToken(True, token)
+                return BoolToken(True, token, keyword)
             elif token.lower() == "false":
-                return BoolToken(False, token)
+                return BoolToken(False, token, keyword)
             else:
                 raise ConfigValidationError(
                     f"{self.kw!r} must have a boolean value"
@@ -251,7 +288,7 @@ class SchemaItem(BaseModel):
                 ) from None
         if val_type == SchemaType.CONFIG_INT:
             try:
-                return IntToken(int(token), token)
+                return IntToken(int(token), token, keyword)
             except ValueError:
                 raise ConfigValidationError(
                     f"{self.kw!r} must have an integer value"
@@ -260,7 +297,7 @@ class SchemaItem(BaseModel):
                 ) from None
         if val_type == SchemaType.CONFIG_FLOAT:
             try:
-                return FloatToken(float(token), token)
+                return FloatToken(float(token), token, keyword)
             except ValueError:
                 raise ConfigValidationError(
                     f"{self.kw!r} must have a number as argument {index + 1!r}",
@@ -277,7 +314,7 @@ class SchemaItem(BaseModel):
                 if path != token:
                     err += f"The configured value was {path!r} "
                 raise ConfigValidationError(err, config_file=token.filename)
-            return StringToken(path, token)
+            return StringToken(path, token, keyword)
         if val_type == SchemaType.CONFIG_EXECUTABLE:
             path = str(token)
             if not os.path.isabs(token) and not os.path.exists(token):
@@ -297,12 +334,14 @@ class SchemaItem(BaseModel):
                     f"File not executable: {context}",
                     config_file=token.filename,
                 )
-            return StringToken(path, token)
-        return StringToken(str(token), token)
+            return StringToken(path, token, keyword)
+        return StringToken(str(token), token, keyword)
 
-    def apply_constraints(self, args: List[Any]) -> Union[List[Any], Any]:
+    def apply_constraints(
+        self, args: List[Any], keyword: FileContextToken
+    ) -> Union[List[Any], Any]:
         args = [
-            self.token_to_value_with_context(x, i)
+            self.token_to_value_with_context(x, i, keyword)
             if isinstance(x, FileContextToken)
             else x
             for i, x in enumerate(args)
