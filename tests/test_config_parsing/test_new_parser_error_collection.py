@@ -1,12 +1,11 @@
-from textwrap import dedent
+import os
 
 import pytest
 
-from ert._c_wrappers.config.config_parser import ErrorInfo
 from ert._c_wrappers.enkf import ErtConfig
 
 test_config_file_base = "test"
-test_config_file_name = f"{test_config_file_base}.ert"
+test_config_filename = f"{test_config_file_base}.ert"
 
 
 def assert_error_from_config_with(
@@ -14,24 +13,25 @@ def assert_error_from_config_with(
     expected_line: int,
     expected_column: int,
     expected_end_column: int,
-    file_name: str = "test.ert",
+    expected_filename: str = "test.ert",
+    filename: str = "test.ert",
     other_files: dict = None,
 ):
-    with open(file_name, "w", encoding="utf-8") as fh:
+    with open(filename, "w", encoding="utf-8") as fh:
         fh.write(contents)
 
     if other_files is not None:
-        for other_file_name, content in other_files.items():
-            with open(other_file_name, mode="w", encoding="utf-8") as fh:
+        for other_filename, content in other_files.items():
+            with open(other_filename, mode="w", encoding="utf-8") as fh:
                 fh.writelines(content)
 
     collected_errors = []
     ErtConfig.from_file(
-        file_name, use_new_parser=True, collected_errors=collected_errors
+        filename, use_new_parser=True, collected_errors=collected_errors
     )
 
     for error in collected_errors:
-        assert error.filename == file_name
+        assert error.filename == expected_filename
 
     error_locations = [(x.line, x.column, x.end_column) for x in collected_errors]
     expected_error_loc = (expected_line, expected_column, expected_end_column)
@@ -177,4 +177,35 @@ INSTALL_JOB_DIRECTORY does_not_exist
         expected_line=6,
         expected_column=23,
         expected_end_column=37,
+    )
+
+
+@pytest.mark.usefixtures("use_tmpdir")
+def test_info_ext_job_missing_executable(tmp_path):
+    assert_error_from_config_with(
+        contents="""
+JOBNAME my_name%d
+NUM_REALIZATIONS 1
+INSTALL_JOB test THE_JOB_FILE
+""",
+        expected_line=4,
+        expected_column=47,
+        expected_end_column=71,
+        other_files={"THE_JOB_FILE": "EXECU missing_script.sh\n"},
+    )
+
+
+@pytest.mark.usefixtures("use_tmpdir")
+def test_info_ext_job_missing_executable(tmp_path):
+    assert_error_from_config_with(
+        contents="""
+JOBNAME my_name%d
+NUM_REALIZATIONS 1
+INSTALL_JOB test THE_JOB_FILE
+""",
+        expected_filename=os.path.join(os.getcwd(), "THE_JOB_FILE"),
+        expected_line=4,
+        expected_column=18,
+        expected_end_column=30,
+        other_files={"THE_JOB_FILE": "EXECU missing_script.sh\n"},
     )

@@ -732,15 +732,27 @@ class ErtConfig:
         jobs = {}
         for job in config_dict.get(ConfigKeys.INSTALL_JOB, []):
             name: MaybeWithToken = job[0]
-            job_config_file = os.path.abspath(job[1])
+            job_file: MaybeWithToken = job[1]
 
-            new_job = ExtJob.from_config_file(
-                name=name,
-                config_file=job_config_file,
-                collected_errors=collected_errors,
-            )
+            job_config_file = os.path.abspath(job_file)
 
-            if new_job is None:
+            try:
+                # Omit passing in collected_errors,
+                # and let it fail w/ exception and
+                # tag the error from here, as it is
+                # being invoked separately, i.e., without
+                # necessary context from tests etc
+                new_job = ExtJob.from_config_file(
+                    name=name, config_file=job_config_file
+                )
+            except ConfigValidationError as err:
+                collected_errors.append(
+                    ErrorInfo(
+                        message=str(err),
+                        filename=job_config_file,
+                        originates_from=job_file,
+                    )
+                )
                 continue
 
             if name in jobs:
