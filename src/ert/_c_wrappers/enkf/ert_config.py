@@ -371,13 +371,12 @@ class ErtConfig:
                 ConfigKeys.SUMMARY
             ]
             first_summary_arglist = summary_arglists[0]
-            first_summary_arg = first_summary_arglist[0]
             collected_errors.append(
                 ErrorInfo(
                     message="When using SUMMARY keyword, the config must "
                     "also specify ECLBASE",
                     filename=config_file,
-                    originates_from_keyword=first_summary_arg,
+                    originates_from_keyword=first_summary_arglist[0],
                 )
             )
 
