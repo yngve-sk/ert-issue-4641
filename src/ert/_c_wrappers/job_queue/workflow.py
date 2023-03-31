@@ -71,10 +71,6 @@ class Workflow:
         except ConfigValidationError as err:
             err.config_file = src_file
             raise err from None
-        except ConfigValidationError as err:
-            err.config_file = src_file
-            raise err from None
-
         for line in content:
             cmd_list.append(
                 (
