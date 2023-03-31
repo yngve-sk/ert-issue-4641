@@ -29,11 +29,13 @@ class ErrorInfo:
     end_column: Optional[int] = None
     end_pos: Optional[int] = None
     originates_from: InitVar[MaybeWithToken] = None
+    originates_from_these: InitVar[List[MaybeWithToken]] = None
     originates_from_keyword: InitVar[MaybeWithKeywordToken] = None
 
     def __post_init__(
         self,
         originates_from: Optional[MaybeWithToken],
+        originates_from_these: Optional[List[MaybeWithToken]],
         originates_from_keyword: Optional[MaybeWithKeywordToken],
     ):
         token = None
@@ -43,6 +45,14 @@ class ErrorInfo:
             token = originates_from_keyword.keyword_token
         elif originates_from is not None and hasattr(originates_from, "token"):
             token = originates_from.token
+        elif originates_from_these is not None:
+            tokens = [x.token for x in originates_from_these if hasattr(x, "token")]
+            # Merge the token positions etc
+
+            if len(tokens) > 0:
+                from ert._c_wrappers.enkf.lark_parser_common import FileContextToken
+
+                token = FileContextToken.join_tokens(tokens)
 
         if token is not None:
             self.start_pos = token.start_pos
