@@ -197,7 +197,7 @@ class StringToken(str):
         return obj
 
     def __deepcopy__(self, memo):
-        new_instance = StringToken(float(self), self.token, self.keyword_token)
+        new_instance = StringToken(str(self), self.token, self.keyword_token)
         memo[id(self)] = new_instance
         return new_instance
 
