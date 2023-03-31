@@ -734,18 +734,13 @@ class ErtConfig:
             name: MaybeWithToken = job[0]
             job_config_file = os.path.abspath(job[1])
 
-            try:
-                new_job = ExtJob.from_config_file(
-                    name=name,
-                    config_file=job_config_file,
-                    collected_errors=collected_errors,
-                )
-            except ConfigValidationError as err:
-                collected_errors.append(
-                    ErrorInfo(
-                        message=str(err), filename=job_config_file, originates_from=name
-                    )
-                )
+            new_job = ExtJob.from_config_file(
+                name=name,
+                config_file=job_config_file,
+                collected_errors=collected_errors,
+            )
+
+            if new_job is None:
                 continue
 
             if name in jobs:

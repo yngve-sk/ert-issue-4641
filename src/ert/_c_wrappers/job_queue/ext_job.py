@@ -221,7 +221,6 @@ class ExtJob:
                     )
             if do_raise_errors:
                 ConfigValidationError.raise_from_collected(collected_errors)
-            return
 
         except IOError as err:
             collected_errors.append(
@@ -233,7 +232,9 @@ class ExtJob:
             )
             if do_raise_errors:
                 ConfigValidationError.raise_from_collected(collected_errors)
-            return
+
+        if config_content is None:
+            return None
 
         logger.info(
             "Content of job config %s: %s",
