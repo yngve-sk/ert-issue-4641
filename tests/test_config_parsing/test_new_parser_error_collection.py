@@ -2,6 +2,7 @@ import os
 
 import pytest
 
+from ert._c_wrappers.config import ConfigValidationError
 from ert._c_wrappers.enkf import ErtConfig
 
 test_config_file_base = "test"
@@ -16,6 +17,7 @@ def assert_error_from_config_with(
     expected_filename: str = "test.ert",
     filename: str = "test.ert",
     other_files: dict = None,
+    match: str = None,
 ):
     with open(filename, "w", encoding="utf-8") as fh:
         fh.write(contents)
@@ -40,6 +42,10 @@ def assert_error_from_config_with(
         f"Expected error location {expected_error_loc} to be found in list of"
         f"error locations: {error_locations}"
     )
+
+    if match is not None:
+        with pytest.raises(ConfigValidationError, match=match):
+            ConfigValidationError.raise_from_collected(collected_errors)
 
 
 @pytest.mark.usefixtures("use_tmpdir")
@@ -181,22 +187,7 @@ INSTALL_JOB_DIRECTORY does_not_exist
 
 
 @pytest.mark.usefixtures("use_tmpdir")
-def test_info_ext_job_missing_executable(tmp_path):
-    assert_error_from_config_with(
-        contents="""
-JOBNAME my_name%d
-NUM_REALIZATIONS 1
-INSTALL_JOB test THE_JOB_FILE
-""",
-        expected_line=4,
-        expected_column=47,
-        expected_end_column=71,
-        other_files={"THE_JOB_FILE": "EXECU missing_script.sh\n"},
-    )
-
-
-@pytest.mark.usefixtures("use_tmpdir")
-def test_info_ext_job_missing_executable(tmp_path):
+def test_info_ext_job_executable_without_table(tmp_path):
     assert_error_from_config_with(
         contents="""
 JOBNAME my_name%d
@@ -208,4 +199,56 @@ INSTALL_JOB test THE_JOB_FILE
         expected_column=18,
         expected_end_column=30,
         other_files={"THE_JOB_FILE": "EXECU missing_script.sh\n"},
+        match='Item:EXECUTABLE must be set - parsing',
+    )
+
+
+@pytest.mark.usefixtures("use_tmpdir")
+def test_info_ext_job_no_portable_exe(tmp_path):
+    assert_error_from_config_with(
+        contents="""
+JOBNAME my_name%d
+NUM_REALIZATIONS 1
+INSTALL_JOB test THE_JOB_FILE
+""",
+        expected_filename=os.path.join(os.getcwd(), "THE_JOB_FILE"),
+        expected_line=4,
+        expected_column=18,
+        expected_end_column=30,
+        other_files={"THE_JOB_FILE": "PORTABLE_EXE never executed\n"},
+        match='"PORTABLE_EXE" key is deprecated, please replace with "EXECUTABLE"',
+    )
+
+
+@pytest.mark.usefixtures("use_tmpdir")
+def test_info_ext_job_missing_executable_file(tmp_path):
+    assert_error_from_config_with(
+        contents="""
+JOBNAME my_name%d
+NUM_REALIZATIONS 1
+INSTALL_JOB test THE_JOB_FILE
+""",
+        expected_filename=os.path.join(os.getcwd(), "THE_JOB_FILE"),
+        expected_line=4,
+        expected_column=18,
+        expected_end_column=30,
+        other_files={"THE_JOB_FILE": "EXECUTABLE not_found.sh\n"},
+        match="Could not find executable",
+    )
+
+
+@pytest.mark.usefixtures("use_tmpdir")
+def test_info_ext_job_is_directory(tmp_path):
+    assert_error_from_config_with(
+        contents="""
+JOBNAME my_name%d
+NUM_REALIZATIONS 1
+INSTALL_JOB test THE_JOB_FILE
+""",
+        expected_filename=os.path.join(os.getcwd(), "THE_JOB_FILE"),
+        expected_line=4,
+        expected_column=18,
+        expected_end_column=30,
+        other_files={"THE_JOB_FILE": "EXECUTABLE /tmp\n"},
+        match="set to directory",
     )
