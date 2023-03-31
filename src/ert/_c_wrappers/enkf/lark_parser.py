@@ -367,7 +367,10 @@ def parse(
     tree = _parse_file(file=filepath, collected_errors=collected_errors)
 
     if tree is None:  # File parse failed, raising makes sense here
-        ConfigValidationError.raise_from_collected(collected_errors)
+        if do_raise_errors:
+            ConfigValidationError.raise_from_collected(collected_errors)
+
+        return None
 
     config_dir = os.path.dirname(filepath)
     config_file_name = os.path.basename(file)
