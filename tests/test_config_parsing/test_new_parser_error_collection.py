@@ -62,7 +62,7 @@ SUMMARY summary"""
 def test_info_gen_kw_with_incorrect_format(tmp_path):
     with open(test_config_file_name, "w", encoding="utf-8") as fh:
         fh.write(
-            f"""
+            """
 JOBNAME my_name%d
 NUM_REALIZATIONS 1
 GEN_KW KW_NAME template.txt kw.txt prior.txt INIT_FILES:custom_param0
@@ -149,3 +149,25 @@ FORWARD_MODEL ECLIPSE9001
     assert error.line == 4
     assert error.column == 15
     assert error.end_column == 26
+
+
+@pytest.mark.usefixtures("use_tmpdir")
+def test_info_positional_forward_model_args_gives_config_validation_error():
+    test_config_contents = dedent(
+        """
+NUM_REALIZATIONS  1
+FORWARD_MODEL RMS <IENS>
+        """
+    )
+    with open(test_config_file_name, "w", encoding="utf-8") as fh:
+        fh.write(test_config_contents)
+
+    collected_errors = []
+    ErtConfig.from_file(
+        test_config_file_name, use_new_parser=True, collected_errors=collected_errors
+    )
+
+    error: ErrorInfo = collected_errors[0]
+    assert error.filename == test_config_file_name
+    assert error.column == 15
+    assert error.end_column == 25
