@@ -199,7 +199,7 @@ INSTALL_JOB test THE_JOB_FILE
         expected_column=18,
         expected_end_column=30,
         other_files={"THE_JOB_FILE": "EXECU missing_script.sh\n"},
-        match='Item:EXECUTABLE must be set - parsing',
+        match="Item:EXECUTABLE must be set - parsing",
     )
 
 
