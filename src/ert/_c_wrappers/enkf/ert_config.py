@@ -95,10 +95,17 @@ class ErtConfig:
 
         config_dir = os.path.abspath(os.path.dirname(user_config_file))
         ErtConfig._log_config_file(user_config_file)
+
+        if not user_config_dict:
+            if do_raise_errors:
+                ConfigValidationError.raise_from_collected(collected_errors)
+            return None
+
         ErtConfig._log_config_dict(user_config_dict)
         ErtConfig.apply_config_content_defaults(user_config_dict, config_dir)
 
         the_config = ErtConfig.from_dict(user_config_dict, collected_errors)
+
         if do_raise_errors:
             ConfigValidationError.raise_from_collected(collected_errors)
 
@@ -477,6 +484,7 @@ class ErtConfig:
                         ErrorInfo(
                             message=f"{err}: 'FORWARD_MODEL {job_name}({args})'\n",
                             filename=config_file,
+                            originates_from_these=[unsubstituted_job_name, args],
                         )
                     )
                     continue
