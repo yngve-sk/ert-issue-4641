@@ -15,6 +15,7 @@ from ert._c_wrappers.config.config_parser import (
     ConfigValidationError,
     ConfigWarning,
     ErrorInfo,
+    MaybeWithToken,
 )
 from ert._c_wrappers.enkf.analysis_config import AnalysisConfig
 from ert._c_wrappers.enkf.config_keys import ConfigKeys
@@ -149,10 +150,13 @@ class ErtConfig:
         substitution_list.addItem("<ECL_BASE>", jobname)
         substitution_list.addItem("<ECLBASE>", jobname)
         workflow_jobs, workflows, hooked_workflows = ErtConfig._workflows_from_dict(
-            config_dict, substitution_list, collected_errors=collected_errors
+            config_dict,
+            substitution_list,
+            config_file=config_file,
+            collected_errors=collected_errors,
         )
         installed_jobs = cls._installed_jobs_from_dict(
-            config_dict, collected_errors=collected_errors
+            config_dict, config_file=config_file, collected_errors=collected_errors
         )
         env_vars = {}
         for key, val in config_dict.get("SETENV", []):
@@ -494,6 +498,7 @@ class ErtConfig:
             except ExtJobInvalidArgsException as err:
                 logger.warning(str(err))
             jobs.append(job)
+
         for job_as_list in config_dict.get(ConfigKeys.SIMULATION_JOB, []):
             try:
                 name, *args = job_as_list
@@ -506,6 +511,7 @@ class ErtConfig:
                         message=f"Could not find job {name!r} in list "
                         f"of installed jobs.",
                         filename=config_file,
+                        originates_from=name,
                     )
                 )
                 continue
@@ -621,7 +627,11 @@ class ErtConfig:
 
     @classmethod
     def _workflows_from_dict(
-        cls, content_dict, substitution_list, collected_errors: List[ErrorInfo]
+        cls,
+        content_dict,
+        substitution_list,
+        config_file: str,
+        collected_errors: List[ErrorInfo],
     ):
         workflow_job_info = content_dict.get(ConfigKeys.LOAD_WORKFLOW_JOB, [])
         workflow_job_dir_info = content_dict.get(ConfigKeys.WORKFLOW_JOB_DIRECTORY, [])
@@ -693,7 +703,8 @@ class ErtConfig:
                     ErrorInfo(
                         message=f"Run mode {mode_name!r} not supported for Hook "
                         f"Workflow",
-                        filename="TODO",
+                        filename=config_file,
+                        originates_from=mode_name,
                     )
                 )
                 continue
@@ -705,7 +716,8 @@ class ErtConfig:
                     ErrorInfo(
                         message=f"Cannot setup hook for non-existing workflow named "
                         f"{hook_name!r}",
-                        filename="TODO",
+                        filename=config_file,
+                        originates_from=hook_name,
                     )
                 )
                 continue
@@ -715,21 +727,25 @@ class ErtConfig:
         return workflow_jobs, workflows, hooked_workflows
 
     @classmethod
-    def _installed_jobs_from_dict(cls, config_dict, collected_errors: List[ErrorInfo]):
+    def _installed_jobs_from_dict(
+        cls, config_dict, config_file: str, collected_errors: List[ErrorInfo]
+    ):
         jobs = {}
         for job in config_dict.get(ConfigKeys.INSTALL_JOB, []):
-            name = job[0]
+            name: MaybeWithToken = job[0]
             job_config_file = os.path.abspath(job[1])
 
             try:
                 new_job = ExtJob.from_config_file(
                     name=name,
-                    config_file=job_config_file,
+                    config_file=config_file,
                     collected_errors=collected_errors,
                 )
             except ConfigValidationError as err:
                 collected_errors.append(
-                    ErrorInfo(message=str(err), filename=job_config_file)
+                    ErrorInfo(
+                        message=str(err), filename=job_config_file, originates_from=name
+                    )
                 )
                 continue
 
@@ -746,7 +762,8 @@ class ErtConfig:
                 collected_errors.append(
                     ErrorInfo(
                         message=f"Unable to locate job directory {job_path!r}",
-                        filename=job_path,
+                        filename=config_file,
+                        originates_from=job_path,
                     )
                 )
                 continue
