@@ -167,7 +167,7 @@ class IntToken(int):
         return obj
 
     def __deepcopy__(self, memo):
-        new_instance = IntToken(int(self), self.token)
+        new_instance = IntToken(int(self), self.token, self.keyword_token)
         memo[id(self)] = new_instance
         return new_instance
 
@@ -182,7 +182,7 @@ class FloatToken(float):
         return obj
 
     def __deepcopy__(self, memo):
-        new_instance = FloatToken(float(self), self.token)
+        new_instance = FloatToken(float(self), self.token, self.keyword_token)
         memo[id(self)] = new_instance
         return new_instance
 
@@ -195,6 +195,11 @@ class StringToken(str):
         obj.token = token
         obj.keyword_token = keyword_token
         return obj
+
+    def __deepcopy__(self, memo):
+        new_instance = StringToken(float(self), self.token, self.keyword_token)
+        memo[id(self)] = new_instance
+        return new_instance
 
 
 class SchemaType(Enum):
