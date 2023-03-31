@@ -738,7 +738,7 @@ class ErtConfig:
             try:
                 new_job = ExtJob.from_config_file(
                     name=name,
-                    config_file=config_file,
+                    config_file=job_config_file,
                     collected_errors=collected_errors,
                 )
             except ConfigValidationError as err:
