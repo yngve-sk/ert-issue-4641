@@ -388,7 +388,10 @@ def test_that_unknown_run_mode_gives_config_validation_error():
     ):
         collected_errors = []
         _ = ErtConfig._workflows_from_dict(
-            content_dict, substitution_list, collected_errors=collected_errors
+            content_dict,
+            substitution_list,
+            config_file="test.ert",
+            collected_errors=collected_errors,
         )
         ConfigValidationError.raise_from_collected(collected_errors)
 
