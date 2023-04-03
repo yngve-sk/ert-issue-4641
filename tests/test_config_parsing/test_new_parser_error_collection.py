@@ -145,6 +145,21 @@ FORWARD_MODEL RMS <IENS>
 
 
 @pytest.mark.usefixtures("use_tmpdir")
+def test_info_unknown_run_mode_gives_error():
+    assert_error_from_config_with(
+        contents="""
+NUM_REALIZATIONS  1
+FORWARD_MODEL RMS <IENS>
+HOOK_WORKFLOW MAKE_DIRECTORY PRE_SIMULATIONnn
+""",
+        expected_line=4,
+        expected_column=30,
+        expected_end_column=46,
+        match="Run mode .* not supported.*",
+    )
+
+
+@pytest.mark.usefixtures("use_tmpdir")
 def test_info_missing_simulation_job_gives_error():
     assert_error_from_config_with(
         contents="""
