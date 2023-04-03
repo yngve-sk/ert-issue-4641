@@ -13,7 +13,8 @@ from ecl.util.util import StringList
 
 from ert import _clib
 from ert._c_wrappers import ResPrototype
-from ert._c_wrappers.config.config_parser import ConfigValidationError, ConfigWarning
+from ert._c_wrappers.config.config_parser import ConfigWarning
+from ert.parsing import ConfigValidationError
 from ert._c_wrappers.config.rangestring import rangestring_to_list
 from ert._c_wrappers.enkf import FieldConfig, GenKwConfig
 from ert._c_wrappers.enkf.config import EnkfConfigNode

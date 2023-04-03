@@ -5,7 +5,8 @@ import pytest
 from ecl.grid.ecl_grid import EclGrid
 from ecl.summary import EclSum
 
-from ert._c_wrappers.config import ConfigValidationError, ConfigWarning
+from ert._c_wrappers.config import ConfigWarning
+from ert.parsing import ConfigValidationError
 from ert._c_wrappers.enkf import ConfigKeys, EnsembleConfig, ErtConfig
 from ert._c_wrappers.enkf.enums import EnkfVarType, ErtImplType, GenDataFileType
 

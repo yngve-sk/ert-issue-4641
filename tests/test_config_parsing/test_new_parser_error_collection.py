@@ -2,7 +2,7 @@ import os
 
 import pytest
 
-from ert._c_wrappers.config import ConfigValidationError
+from ert.parsing import ConfigValidationError
 from ert._c_wrappers.enkf import ErtConfig
 
 test_config_file_base = "test"

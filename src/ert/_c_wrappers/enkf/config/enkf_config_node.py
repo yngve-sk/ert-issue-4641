@@ -7,7 +7,7 @@ from ecl.grid import EclGrid
 from ecl.util.util import IntVector, StringList
 
 from ert._c_wrappers import ResPrototype
-from ert._c_wrappers.config.config_parser import ConfigValidationError
+from ert.parsing import ConfigValidationError
 from ert._c_wrappers.enkf.config_keys import ConfigKeys
 from ert._c_wrappers.enkf.enums import (
     EnkfTruncationType,

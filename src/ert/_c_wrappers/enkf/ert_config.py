@@ -12,11 +12,9 @@ import pkg_resources
 
 from ert._c_wrappers.config import ConfigParser
 from ert._c_wrappers.config.config_parser import (
-    ConfigValidationError,
     ConfigWarning,
-    ErrorInfo,
-    MaybeWithToken,
 )
+from ...parsing import ConfigValidationError, ErrorInfo, MaybeWithToken
 from ert._c_wrappers.enkf.analysis_config import AnalysisConfig
 from ert._c_wrappers.enkf.config_keys import ConfigKeys
 from ert._c_wrappers.enkf.ensemble_config import EnsembleConfig
@@ -36,8 +34,8 @@ from ert._clib.config_keywords import init_site_config_parser, init_user_config_
 
 from ._config_content_as_dict import config_content_as_dict
 from ._deprecation_migration_suggester import DeprecationMigrationSuggester
-from .config_keywords import PrimitiveWithContext
-from .lark_parser import parse as lark_parse
+from ert.parsing.config_keywords import PrimitiveWithContext
+from ert.parsing.lark_parser import parse as lark_parse
 
 logger = logging.getLogger(__name__)
 

@@ -8,8 +8,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-from ert._c_wrappers.config import ConfigParser, ConfigValidationError, ContentTypeEnum
-from ert._c_wrappers.config.config_parser import ErrorInfo
+from ert._c_wrappers.config import ConfigParser, ContentTypeEnum
+from ert.parsing import ConfigValidationError, ErrorInfo
 from ert._c_wrappers.util import SubstitutionList
 from ert._clib.job_kw import type_from_kw
 
