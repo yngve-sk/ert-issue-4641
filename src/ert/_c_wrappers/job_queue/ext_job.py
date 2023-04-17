@@ -71,24 +71,20 @@ class ExtJob:
         if resolved is None:
             raise ConfigValidationError(
                 config_file=config_file_location,
-                errors=[f"Could not find executable {executable!r} for job {name!r}"],
+                errors=f"Could not find executable {executable!r} for job {name!r}",
             )
 
         if not os.access(resolved, os.X_OK):  # is not executable
             raise ConfigValidationError(
                 config_file=config_file_location,
-                errors=[
-                    f"ExtJob {name!r} with executable"
-                    f" {resolved!r} does not have execute permissions"
-                ],
+                errors=f"ExtJob {name!r} with executable"
+                f" {resolved!r} does not have execute permissions",
             )
 
         if os.path.isdir(resolved):
             raise ConfigValidationError(
                 config_file=config_file_location,
-                errors=[
-                    f"ExtJob {name!r} has executable set to directory {resolved!r}"
-                ],
+                errors=f"ExtJob {name!r} has executable set to directory {resolved!r}",
             )
 
         return resolved

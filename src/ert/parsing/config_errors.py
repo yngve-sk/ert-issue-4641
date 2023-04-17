@@ -1,4 +1,5 @@
-from typing import Optional
+from collections import defaultdict
+from typing import Dict, List, Optional, Tuple, Union
 
 
 class ConfigWarning(UserWarning):
@@ -6,14 +7,32 @@ class ConfigWarning(UserWarning):
 
 
 class ConfigValidationError(ValueError):
-    def __init__(self, errors: str, config_file: Optional[str] = None) -> None:
-        self.config_file = config_file
-        self.errors = errors
-        super().__init__(
-            (
-                f"Parsing config file `{self.config_file}` "
-                f"resulted in the errors: {self.errors}"
-            )
-            if self.config_file
-            else f"{self.errors}"
+    def __init__(
+        self,
+        errors: Union[str, List[Tuple[str, str]]],
+        config_file: Optional[str] = None,
+    ) -> None:
+        self.errors: Dict[Optional[str], List[str]] = defaultdict(list)
+        if isinstance(errors, list):
+            for config_file, error in errors:
+                self.errors[config_file].append(error)
+        else:
+            self.errors[config_file] = [errors]
+        super().__init__(";".join(self.get_error_messages()))
+
+    def get_error_messages(self):
+        return [
+            f"Parsing config file `{config_file}` "
+            f"resulted in the errors: {','.join(error)}"
+            for config_file, error in self.errors.items()
+        ]
+
+    @classmethod
+    def from_collected(cls, errors: List["ConfigValidationError"]):
+        return cls(
+            [
+                (config_file, message)
+                for error in errors
+                for config_file, message in error.errors
+            ]
         )
