@@ -55,6 +55,7 @@ class ErtAnalysisError(Exception):
 @dataclass
 class ObservationAndResponseSnapshot:
     obs_name: str
+    obs_coords: dict[str, str]
     obs_val: float
     obs_std: float
     obs_scaling: float
@@ -66,11 +67,14 @@ class ObservationAndResponseSnapshot:
     def __post_init__(self) -> None:
         status = "Active"
         if np.isnan(self.response_mean):
-            status = "Deactivated, missing response(es)"
+            status = f"Deactivated, missing response(es): {self.obs_coords}"
         elif not self.response_std_mask:
-            status = f"Deactivated, ensemble std ({self.response_std:.3f}) > STD_CUTOFF"
+            status = (
+                f"Deactivated, ensemble std "
+                f"({self.response_std:.3f}) > STD_CUTOFF, {self.obs_coords}"
+            )
         elif not self.response_mean_mask:
-            status = "Deactivated, outlier"
+            status = f"Deactivated, outlier, {self.obs_coords}"
         self.status = status
 
 
@@ -328,9 +332,22 @@ def _get_obs_and_measure_data(
                 f"Observation: {obs.name} attached to response: {group}"
             ) from e
 
+        obs_coord_names = filtered_response.observations.coords.to_index().names
         observation_keys.append(
-            [obs.name] * len(filtered_response.observations.data.ravel())
+            [
+                (
+                    obs,
+                    {
+                        coord_name: coords[i]
+                        for i, coord_name in enumerate(obs_coord_names)
+                    },
+                )
+                for coords in filtered_response.observations.stack(z=obs_coord_names)
+                .coords["z"]
+                .data
+            ]
         )
+
         observation_values.append(filtered_response["observations"].data.ravel())
         observation_errors.append(filtered_response["std"].data.ravel())
         measured_data.append(
@@ -391,7 +408,7 @@ def _load_observations_and_responses(
 
     update_snapshot = []
     for (
-        obs_name,
+        (obs_name, obs_coords),
         obs_val,
         obs_std,
         obs_scaling,
@@ -412,6 +429,7 @@ def _load_observations_and_responses(
         update_snapshot.append(
             ObservationAndResponseSnapshot(
                 obs_name=obs_name,
+                obs_coords=obs_coords,
                 obs_val=obs_val,
                 obs_std=obs_std,
                 obs_scaling=obs_scaling,
@@ -675,16 +693,16 @@ def analysis_ES(
                 start = time.time()
                 for param_batch_idx in TimedIterator(batches, progress_callback):
                     X_local = temp_storage[param_group.name][param_batch_idx, :]
-                    temp_storage[param_group.name][param_batch_idx, :] = (
-                        smoother_adaptive_es.assimilate(
-                            X=X_local,
-                            Y=S,
-                            D=D,
-                            alpha=1.0,  # The user is responsible for scaling observation covariance (esmda usage)
-                            correlation_threshold=module.correlation_threshold,
-                            cov_YY=cov_YY,
-                            verbose=False,
-                        )
+                    temp_storage[param_group.name][
+                        param_batch_idx, :
+                    ] = smoother_adaptive_es.assimilate(
+                        X=X_local,
+                        Y=S,
+                        D=D,
+                        alpha=1.0,  # The user is responsible for scaling observation covariance (esmda usage)
+                        correlation_threshold=module.correlation_threshold,
+                        cov_YY=cov_YY,
+                        verbose=False,
                     )
                 _logger.info(
                     f"Adaptive Localization of {param_group} completed in {(time.time() - start) / 60} minutes"
@@ -841,9 +859,9 @@ def analysis_IES(
             )
             if active_parameter_indices := param_group.index_list:
                 X = temp_storage[param_group.name][active_parameter_indices, :]
-                temp_storage[param_group.name][active_parameter_indices, :] = (
-                    X + X @ sies_smoother.W / np.sqrt(len(iens_active_index) - 1)
-                )
+                temp_storage[param_group.name][
+                    active_parameter_indices, :
+                ] = X + X @ sies_smoother.W / np.sqrt(len(iens_active_index) - 1)
             else:
                 X = temp_storage[param_group.name]
                 temp_storage[param_group.name] = X + X @ sies_smoother.W / np.sqrt(
