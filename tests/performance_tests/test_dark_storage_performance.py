@@ -6,7 +6,13 @@ import pytest
 
 from ert.async_utils import get_event_loop
 from ert.config import ErtConfig
-from ert.dark_storage.endpoints import ensembles, experiments, records, responses
+from ert.dark_storage.endpoints import (
+    ensembles,
+    experiments,
+    records,
+    responses,
+    plotting,
+)
 from ert.enkf_main import EnKFMain
 from ert.libres_facade import LibresFacade
 from ert.storage import open_storage
