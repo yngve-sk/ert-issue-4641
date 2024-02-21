@@ -1,0 +1,23 @@
+DEFINE <SCHEDULE_FILE> poly_schedule_prediction.txt
+
+JOBNAME poly_%d
+
+QUEUE_SYSTEM LOCAL
+QUEUE_OPTION LOCAL MAX_RUNNING 50
+
+RUNPATH poly_out/realization-<IENS>/iter-<ITER>
+
+OBS_CONFIG observations
+
+NUM_REALIZATIONS 200
+MIN_REALIZATIONS 1
+MAX_RUNTIME 15
+
+GEN_KW COEFFS coeff_priors
+GEN_DATA POLY_RES RESULT_FILE:poly.out
+
+--FORWARD_MODEL DESIGN2PARAMS(<xls_filename>=<CONFIG_PATH>/design_matrix.xlsx,<designsheet>=DesignSheet01,<defaultssheet>=DefaultValues)
+FORWARD_MODEL DESIGN_KW(<template_file>=<CONFIG_PATH>/design_template_file,<result_file>=parameters_templated.json)
+FORWARD_MODEL COPY_FILE(<FROM>=<CONFIG_PATH>/<SCHEDULE_FILE>,<TO>=<RUNPATH>/schedule.txt)
+INSTALL_JOB poly_eval POLY_EVAL
+SIMULATION_JOB poly_eval
