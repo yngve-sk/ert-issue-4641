@@ -181,6 +181,13 @@ class LocalEnsemble(BaseMode):
             for parameter in self.experiment.parameter_configuration
         )
 
+    def _has_combined_dataset(self, key: str) -> bool:
+        return (self._path / f"{key}.nc").exists()
+
+    @lru_cache
+    def load_combined_dataset(self, key: str) -> xr.Dataset:
+        return xr.open_dataset(self._path / f"{key}.nc")
+
     def _responses_exist_for_realization(
         self, realization: int, key: Optional[str] = None
     ) -> bool:
@@ -190,13 +197,20 @@ class LocalEnsemble(BaseMode):
         """
         if not self.experiment.response_configuration:
             return False
-        path = self._realization_dir(realization)
 
+        real_dir = self._realization_dir(realization)
         if key:
-            return (path / f"{key}.nc").exists()
+            if self._has_combined_dataset(key):
+                return (
+                    realization
+                    in self.load_combined_dataset(key).coords["realization"].values
+                )
+            else:
+                return (real_dir / f"{key}.nc").exists()
+
 
         return all(
-            (path / f"{response}.nc").exists()
+            (real_dir / f"{response}.nc").exists() or self._has_combined_dataset(response)
             for response in self.experiment.response_configuration
         )
 
@@ -355,8 +369,8 @@ class LocalEnsemble(BaseMode):
     def load_responses(self, key: str, realizations: Tuple[int]) -> xr.Dataset:
         if realizations:
             ds = self.load_responses_file(key)
-            mask = ds["realizations"].isin(realizations)
-            return ds.sel(realizations=mask)
+            mask = ds["realization"].isin(realizations)
+            return ds.sel(realization=mask)
 
         return self.load_responses_file(key)
 
@@ -492,6 +506,12 @@ class LocalEnsemble(BaseMode):
 
     @require_write
     def save_response(self, group: str, data: xr.Dataset, realization: int) -> None:
+        # Reason for using zarr:
+        # Supports multi-thread / multiprocess writing
+        # ref
+        # https://zarr.readthedocs.io/en/stable/tutorial.html#parallel-computing-and-synchronization
+        # Turning into netcdf is fast
+
         if "realization" not in data.dims:
             data = data.expand_dims({"realization": [realization]})
 
