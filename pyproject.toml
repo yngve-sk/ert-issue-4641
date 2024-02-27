@@ -81,6 +81,7 @@ dependencies=[
     "tables; python_version >= '3.9'",
     "python-multipart",
     "pyarrow",
+    "zarr"
 ]
 
 [project.scripts]

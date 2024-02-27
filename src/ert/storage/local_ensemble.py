@@ -202,15 +202,18 @@ class LocalEnsemble(BaseMode):
         if key:
             if self._has_combined_dataset(key):
                 return (
-                    realization
-                    in self.load_combined_dataset(key).coords["realization"].values
+                    realization in self.load_combined_dataset(key)["realization"].values
                 )
             else:
                 return (real_dir / f"{key}.nc").exists()
 
-
         return all(
-            (real_dir / f"{response}.nc").exists() or self._has_combined_dataset(response)
+            (real_dir / f"{response}.nc").exists()
+            or (
+                self._has_combined_dataset(response)
+                and realization
+                in self.load_combined_dataset(response)["realization"].values
+            )
             for response in self.experiment.response_configuration
         )
 
