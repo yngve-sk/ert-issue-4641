@@ -539,4 +539,6 @@ class BaseRunModel:
             HookRuntime.POST_SIMULATION, self._storage, run_context.sim_fs
         )
 
+        run_context.sim_fs.unify_responses()
+
         return num_successful_realizations

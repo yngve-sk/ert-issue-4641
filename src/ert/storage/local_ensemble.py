@@ -3,10 +3,11 @@ from __future__ import annotations
 import contextlib
 import logging
 import os
+import shutil
 from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
-from typing import TYPE_CHECKING, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, List, Optional, Tuple, Union, Literal
 from uuid import UUID
 
 import numpy as np
@@ -342,18 +343,22 @@ class LocalEnsemble(BaseMode):
     ) -> xr.Dataset:
         return self._load_dataset(group, realizations)
 
-    @lru_cache  # noqa: B019
-    def load_responses(self, key: str, realizations: Tuple[int]) -> xr.Dataset:
+    @lru_cache
+    def load_responses_file(self, key: str):
         if key not in self.experiment.response_configuration:
             raise ValueError(f"{key} is not a response")
-        loaded = []
-        for realization in realizations:
-            input_path = self._realization_dir(realization) / f"{key}.nc"
-            if not input_path.exists():
-                raise KeyError(f"No response for key {key}, realization: {realization}")
-            ds = xr.open_dataset(input_path, engine="scipy")
-            loaded.append(ds)
-        return xr.combine_nested(loaded, concat_dim="realization")
+
+        response_path = self._path / f"{key}.nc"
+        return xr.open_dataset(response_path)
+
+    @lru_cache  # noqa: B019
+    def load_responses(self, key: str, realizations: Tuple[int]) -> xr.Dataset:
+        if realizations:
+            ds = self.load_responses_file(key)
+            mask = ds["realizations"].isin(realizations)
+            return ds.sel(realizations=mask)
+
+        return self.load_responses_file(key)
 
     @deprecated("Use load_responses")
     def load_all_summary_data(
@@ -489,7 +494,18 @@ class LocalEnsemble(BaseMode):
     def save_response(self, group: str, data: xr.Dataset, realization: int) -> None:
         if "realization" not in data.dims:
             data = data.expand_dims({"realization": [realization]})
-        output_path = self._realization_dir(realization)
-        Path.mkdir(output_path, parents=True, exist_ok=True)
 
-        data.to_netcdf(output_path / f"{group}.nc", engine="scipy")
+        response_file_path = self._path / f"{group}.zarr"
+
+        if os.path.exists(response_file_path):
+            data.to_zarr(response_file_path, mode="a", append_dim="realization")
+        else:
+            data.to_zarr(response_file_path, mode="w")
+
+    @require_write
+    def unify_responses(self) -> None:
+        zarrs = self._path.glob("*.zarr")
+
+        for z in zarrs:
+            xr.open_dataset(z).to_netcdf(str(z).replace(".zarr", ".nc"))
+            shutil.rmtree(z)
