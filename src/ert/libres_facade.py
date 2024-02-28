@@ -209,6 +209,8 @@ class LibresFacade:
             else:
                 _logger.error(f"Realization: {iens}, load failure: {message}")
 
+        run_args[0].ensemble_storage.unify_responses()
+
         return loaded
 
     def get_observations(self) -> "EnkfObs":

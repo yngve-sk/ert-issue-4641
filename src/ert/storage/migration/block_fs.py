@@ -491,6 +491,8 @@ def _migrate_summary(
         )
         ensemble.save_response("summary", ds, realization_index)
 
+    ensemble.unify_responses()
+
 
 def _migrate_gen_data_info(
     data_file: DataFile,

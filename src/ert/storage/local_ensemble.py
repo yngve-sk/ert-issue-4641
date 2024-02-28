@@ -13,6 +13,7 @@ from uuid import UUID
 import numpy as np
 import pandas as pd
 import xarray as xr
+from filelock import Timeout, FileLock
 from pydantic import BaseModel
 from typing_extensions import deprecated
 
@@ -48,6 +49,8 @@ class _Failure(BaseModel):
 
 
 class LocalEnsemble(BaseMode):
+    LOCK_TIMEOUT = 120
+
     def __init__(
         self,
         storage: LocalStorage,
@@ -182,7 +185,9 @@ class LocalEnsemble(BaseMode):
         )
 
     def _has_combined_dataset(self, key: str) -> bool:
-        return (self._path / f"{key}.nc").exists()
+        return (self._path / f"{key}.nc").exists() or (
+            self._path / f"{key}.nc"
+        ).exists()
 
     @lru_cache
     def load_combined_dataset(self, key: str) -> xr.Dataset:
@@ -201,9 +206,7 @@ class LocalEnsemble(BaseMode):
         real_dir = self._realization_dir(realization)
         if key:
             if self._has_combined_dataset(key):
-                return (
-                    realization in self.load_combined_dataset(key)["realization"].values
-                )
+                return realization in self.load_combined_dataset(key)["realization"]
             else:
                 return (real_dir / f"{key}.nc").exists()
 
@@ -234,9 +237,15 @@ class LocalEnsemble(BaseMode):
         Check that the ensemble has all responses present in at least one realization
         """
         return any(
-            all(
-                (self._realization_dir(i) / f"{response}.nc").exists()
-                for response in self.experiment.response_configuration
+            (
+                all(
+                    (self._realization_dir(i) / f"{response}.nc").exists()
+                    for response in self.experiment.response_configuration
+                )
+                or all(
+                    self._has_combined_dataset(response)
+                    for response in self.experiment.response_configuration
+                )
             )
             for i in range(self.ensemble_size)
         )
@@ -360,13 +369,18 @@ class LocalEnsemble(BaseMode):
     ) -> xr.Dataset:
         return self._load_dataset(group, realizations)
 
-    @lru_cache
     def load_responses_file(self, key: str):
         if key not in self.experiment.response_configuration:
             raise ValueError(f"{key} is not a response")
 
-        response_path = self._path / f"{key}.nc"
-        return xr.open_dataset(response_path)
+        nc_path = self._path / f"{key}.nc"
+
+        if os.path.exists(nc_path):
+            return xr.open_dataset(nc_path)
+
+        raise FileNotFoundError(
+            f"Responses file for response {key} not found (tried {key}.nc and {key}.nc"
+        )
 
     @lru_cache  # noqa: B019
     def load_responses(self, key: str, realizations: Tuple[int]) -> xr.Dataset:
@@ -508,27 +522,38 @@ class LocalEnsemble(BaseMode):
         dataset.expand_dims(realizations=[realization]).to_netcdf(path, engine="scipy")
 
     @require_write
-    def save_response(self, group: str, data: xr.Dataset, realization: int) -> None:
-        # Reason for using zarr:
-        # Supports multi-thread / multiprocess writing
-        # ref
-        # https://zarr.readthedocs.io/en/stable/tutorial.html#parallel-computing-and-synchronization
-        # Turning into netcdf is fast
+    def _acquire_lock(self) -> None:
+        self._lock = FileLock(self._path / "ensemble.lock")
+        try:
+            self._lock.acquire(timeout=self.LOCK_TIMEOUT)
+        except Timeout as e:
+            raise TimeoutError(
+                f"Not able to acquire lock for: {self._path}."
+                " You may already be running ERT,"
+                " or another user is using the same ENSPATH."
+            ) from e
 
+    @require_write
+    def save_response(self, group: str, data: xr.Dataset, realization: int) -> None:
         if "realization" not in data.dims:
             data = data.expand_dims({"realization": [realization]})
 
-        response_file_path = self._path / f"{group}.zarr"
+        response_file_path = self._path / f"{group}.nc"
 
-        if os.path.exists(response_file_path):
-            data.to_zarr(response_file_path, mode="a", append_dim="realization")
-        else:
-            data.to_zarr(response_file_path, mode="w")
+        try:
+            self._acquire_lock()
+            if os.path.exists(response_file_path):
+                data.to_netcdf(
+                    response_file_path,
+                    mode="a",
+                )
+            else:
+                data.to_netcdf(response_file_path)
+            self._lock.release()
+        except Exception as e:
+            self._lock.release()
+            raise e
 
     @require_write
     def unify_responses(self) -> None:
-        zarrs = self._path.glob("*.zarr")
-
-        for z in zarrs:
-            xr.open_dataset(z).to_netcdf(str(z).replace(".zarr", ".nc"))
-            shutil.rmtree(z)
+        pass
