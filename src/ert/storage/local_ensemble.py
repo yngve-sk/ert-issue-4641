@@ -564,37 +564,60 @@ class LocalEnsemble(BaseMode):
 
         return ds.std("realizations")
 
-        if os.path.exists(self._path / f"{group}.nc"):
-            # Ideally this should never happen
-            os.remove(self._path / f"{group}.nc")
-
     def _unify_datasets(
         self,
         groups: List[str],
         concat_dim: Literal["realization", "realizations"],
+        unified_dataset_filename: str,
+        add_group_as_dimension: bool = False,
         delete_after: bool = True,
     ) -> None:
+        datasets = []
         for group in groups:
             paths = sorted(self.mount_point.glob(f"realization-*/{group}.nc"))
 
             if len(paths) > 0:
-                xr.combine_nested(
-                    [xr.open_dataset(p, engine="scipy") for p in paths],
-                    concat_dim=concat_dim,
-                ).to_netcdf(self._path / f"{group}.nc", engine="scipy")
+                for p in paths:
+                    ds = xr.open_dataset(p)
+                    if add_group_as_dimension and "name" not in ds.coords:
+                        ds = ds.expand_dims(name=group)
+
+                    datasets.append(ds)
 
                 if delete_after:
                     for p in paths:
                         os.remove(p)
 
+        xr.combine_nested(
+            datasets,
+            concat_dim=concat_dim,
+        ).to_netcdf(self._path / f"{unified_dataset_filename}", engine="scipy")
+
     def _unify_responses(self, key: Optional[str] = None) -> None:
-        self._unify_datasets(
-            [key] if key is not None else list(self.experiment.response_info.keys()),
-            "realization",
-        )
+        gen_data_groups = [
+            x
+            for x, info in self.experiment.response_info.items()
+            if info["_ert_kind"] == "GenDataConfig"
+        ]
+
+        if gen_data_groups and (key is None or key in gen_data_groups):
+            self._unify_datasets(
+                gen_data_groups,
+                dataset_name="gen_data.nc",
+                concat_dim="realization",
+                add_group_as_dimension=True,
+            )
+
+        if "summary" in self.experiment.response_info:
+            self._unify_datasets(
+                ["summary"],
+                unified_dataset_filename="summary.nc",
+                concat_dim="realization",
+            )
 
     def _unify_parameters(self, key: Optional[str] = None) -> None:
         self._unify_datasets(
             [key] if key is not None else list(self.experiment.parameter_info.keys()),
-            "realizations",
+            unified_dataset_filename=f"{key}.nc",
+            concat_dim="realizations",
         )
