@@ -343,24 +343,42 @@ class LocalEnsemble(BaseMode):
                 f"No dataset '{group}' in storage for realization {realization}"
             ) from e
 
+    def _group_to_unified_dataset_key(self, group: str):
+        if group in {"summary", "gen_data"}:
+            return group
+
+        if group in self.experiment.parameter_info:
+            return group
+        elif group in self.experiment.response_info:
+            info = self.experiment.response_info[group]
+            return (
+                "summary"
+                if "summary" in info and group in info["summary"]["keys"]
+                else "gen_data"
+            )
+        else:
+            raise KeyError(
+                f"Expected group: {group} to be the name of a parameter or response"
+            )
+
     def _ensure_unified_dataset_exists(self, group: str):
+        unified_ds_key = self._group_to_unified_dataset_key(group)
+
         try:
-            self.open_unified_dataset(group)
+            self.open_unified_dataset(unified_ds_key)
         except FileNotFoundError:
-            if group in self.experiment.response_info:
-                self._unify_parameters(group)
+            if unified_ds_key == "summary":
+                self._unify_responses("summary")
+            elif unified_ds_key == "gen_data":
+                self._unify_responses("gen_data")
             else:
-                self._unify_responses(group)
+                self._unify_parameters(group)
 
     def load_parameters(
         self,
         group: str,
         realizations: Union[int, Tuple[int], npt.NDArray[np.int_], None] = None,
     ) -> xr.Dataset:
-        try:
-            self.open_unified_dataset(group)
-        except FileNotFoundError:
-            self._unify_parameters()
         self._ensure_unified_dataset_exists(group)
 
         try:
@@ -381,7 +399,18 @@ class LocalEnsemble(BaseMode):
             ) from e
 
     def open_unified_dataset(self, key: str) -> xr.Dataset:
-        nc_path = self._path / f"{key}.nc"
+        if key in self.experiment.response_info:
+            ert_kind = self.experiment.response_info[key]["_ert_kind"]
+            if ert_kind == "SummaryConfig":
+                nc_path = self._path / "summary.nc"
+            elif ert_kind == "GenDataConfig":
+                nc_path = self._path / "gen_data.nc"
+            else:
+                raise KeyError(
+                    f"Expected key {key} to be summary or gen_data key, but was {ert_kind}"
+                )
+        else:
+            nc_path = self._path / f"{key}.nc"
 
         if os.path.exists(nc_path):
             return xr.open_dataset(nc_path)
@@ -554,13 +583,7 @@ class LocalEnsemble(BaseMode):
         if not parameter_group in self.experiment.parameter_configuration:
             raise ValueError(f"{parameter_group} is not registered to the experiment.")
 
-        path = self._path / "realization-*" / f"{parameter_group}.nc"
-        try:
-            ds = xr.open_mfdataset(str(path))
-        except OSError as e:
-            raise e
-
-        return ds.std("realizations")
+        return self.load_parameters(parameter_group).std("realizations")
 
     def _unify_datasets(
         self,
@@ -573,49 +596,60 @@ class LocalEnsemble(BaseMode):
         datasets = []
         for group in groups:
             paths = sorted(self.mount_point.glob(f"realization-*/{group}.nc"))
-
             if len(paths) > 0:
                 for p in paths:
                     ds = xr.open_dataset(p)
                     if add_group_as_dimension and "name" not in ds.coords:
-                        ds = ds.expand_dims(name=group)
+                        ds = ds.expand_dims(name=[group])
 
                     datasets.append(ds)
-
-                if delete_after:
-                    for p in paths:
-                        os.remove(p)
 
         xr.combine_nested(
             datasets,
             concat_dim=concat_dim,
         ).to_netcdf(self._path / f"{unified_dataset_filename}", engine="scipy")
 
-    def _unify_responses(self, key: Optional[str] = None) -> None:
-        gen_data_groups = [
-            x
-            for x, info in self.experiment.response_info.items()
-            if info["_ert_kind"] == "GenDataConfig"
-        ]
+        if delete_after:
+            for group in groups:
+                paths = sorted(self.mount_point.glob(f"realization-*/{group}.nc"))
+                for p in paths:
+                    os.remove(p)
 
-        if gen_data_groups and (key is None or key in gen_data_groups):
+    def _unify_responses(self, key: Optional[str] = None) -> None:
+        key = self._group_to_unified_dataset_key(key)
+
+        if key == "gen_data":
+            gen_data_groups = [
+                x
+                for x, info in self.experiment.response_info.items()
+                if info["_ert_kind"] == "GenDataConfig"
+            ]
+
             self._unify_datasets(
                 gen_data_groups,
-                dataset_name="gen_data.nc",
+                unified_dataset_filename="gen_data.nc",
                 concat_dim="realization",
                 add_group_as_dimension=True,
             )
 
-        if "summary" in self.experiment.response_info:
+        if key == "summary":
             self._unify_datasets(
                 ["summary"],
                 unified_dataset_filename="summary.nc",
                 concat_dim="realization",
             )
 
-    def _unify_parameters(self, key: Optional[str] = None) -> None:
-        self._unify_datasets(
-            [key] if key is not None else list(self.experiment.parameter_info.keys()),
-            unified_dataset_filename=f"{key}.nc",
-            concat_dim="realizations",
-        )
+    def _unify_parameters(self, group: Optional[str] = None) -> None:
+        if group is not None:
+            self._unify_datasets(
+                [group],
+                unified_dataset_filename=f"{group}.nc",
+                concat_dim="realizations",
+            )
+        else:
+            for group in self.experiment.parameter_info:
+                self._unify_datasets(
+                    [group],
+                    unified_dataset_filename=f"{group}.nc",
+                    concat_dim="realizations",
+                )

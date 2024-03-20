@@ -511,3 +511,7 @@ class StatefulStorageTest(RuleBasedStateMachine):
 
 
 TestStorage = StatefulStorageTest.TestCase
+
+
+def test_unification_of_gen_data(tmp_path):
+    pass
