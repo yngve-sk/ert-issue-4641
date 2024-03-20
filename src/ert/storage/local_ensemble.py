@@ -357,8 +357,6 @@ class LocalEnsemble(BaseMode):
         group: str,
         realizations: Union[int, Tuple[int], npt.NDArray[np.int_], None] = None,
     ) -> xr.Dataset:
-        return self._load_dataset(group, realizations)
-
         try:
             self.open_unified_dataset(group)
         except FileNotFoundError:
