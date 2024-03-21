@@ -367,12 +367,10 @@ class LocalEnsemble(BaseMode):
         try:
             self.open_unified_dataset(unified_ds_key)
         except FileNotFoundError:
-            if unified_ds_key == "summary":
-                self._unify_responses("summary")
-            elif unified_ds_key == "gen_data":
-                self._unify_responses("gen_data")
+            if unified_ds_key in {"summary", "gen_data"}:
+                self._unify_responses(unified_ds_key)
             else:
-                self._unify_parameters(group)
+                self._unify_parameters(unified_ds_key)
 
     def load_parameters(
         self,
@@ -428,7 +426,13 @@ class LocalEnsemble(BaseMode):
         ds = self.open_unified_dataset(key)
         if realizations:
             try:
-                return ds.sel(realization=list(realizations))
+                if sorted(realizations) != tuple(range(0, self.ensemble_size)):
+                    ds = ds.where(ds.realization.isin(realizations))
+
+                if key not in {"summary", "gen_data"}:
+                    ds = ds.sel(name=key, drop=True)
+
+                return ds
             except KeyError as err:
                 raise KeyError(
                     f"No response for key {key}, realization: {realizations}"
@@ -588,7 +592,7 @@ class LocalEnsemble(BaseMode):
     def _unify_datasets(
         self,
         groups: List[str],
-        concat_dim: Literal["realization", "realizations"],
+        concat_dim: Literal["realization", "realizations", "name"],
         unified_dataset_filename: str,
         add_group_as_dimension: bool = False,
         delete_after: bool = True,
@@ -597,9 +601,13 @@ class LocalEnsemble(BaseMode):
         for group in groups:
             paths = sorted(self.mount_point.glob(f"realization-*/{group}.nc"))
             if len(paths) > 0:
+                sample_ds = xr.open_dataset(paths[0])
+                add_name_dimension = (
+                    add_group_as_dimension and "name" not in sample_ds.coords
+                )
                 for p in paths:
                     ds = xr.open_dataset(p)
-                    if add_group_as_dimension and "name" not in ds.coords:
+                    if add_name_dimension:
                         ds = ds.expand_dims(name=[group])
 
                     datasets.append(ds)
@@ -628,7 +636,7 @@ class LocalEnsemble(BaseMode):
             self._unify_datasets(
                 gen_data_groups,
                 unified_dataset_filename="gen_data.nc",
-                concat_dim="realization",
+                concat_dim="name",
                 add_group_as_dimension=True,
             )
 
