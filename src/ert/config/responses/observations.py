@@ -17,14 +17,8 @@ import pandas as pd
 import xarray as xr
 from pydantic import BaseModel, Field
 
-from ert.validation import rangestring_to_list
-
-from .enkf_observation_implementation_type import EnkfObservationImplementationType
-from .gen_data_config import GenDataConfig
-from .general_observation import GenObservation
-from .observation_vector import ObsVector
-from .parsing import ConfigWarning, HistorySource
-from .parsing.observations_parser import (
+from ert.config.parsing import ConfigWarning, HistorySource
+from ert.config.parsing.observations_parser import (
     DateValues,
     ErrorValues,
     GenObsValues,
@@ -32,12 +26,18 @@ from .parsing.observations_parser import (
     ObservationConfigError,
     SummaryValues,
 )
-from .summary_observation import SummaryObservation
+from ert.config.responses.gen_data_config import GenDataConfig
+from ert.config.responses.general_observation import GenObservation
+from ert.config.responses.summary_observation import SummaryObservation
+from ert.validation import rangestring_to_list
+
+from .observation_vector import ObsVector
+from .response_properties import ResponseTypes
 
 if TYPE_CHECKING:
     import numpy.typing as npt
 
-    from .ensemble_config import EnsembleConfig
+    from ert.config.ensemble_config import EnsembleConfig
 
 DEFAULT_TIME_DELTA = timedelta(seconds=30)
 
@@ -168,18 +168,18 @@ class EnkfObs:
         # observation and then merge/concat
         # this just accumulates 1d vecs before making a dataset
         for vec in vecs:
-            if vec.observation_type == EnkfObservationImplementationType.GEN_OBS:
+            if vec.observation_type == ResponseTypes.GEN_DATA:
                 for report_step, node in vec.observations.items():
                     gen_obs.write(
-                        gen_data_key=vec.data_key,
-                        obs_name=vec.observation_key,
+                        gen_data_key=vec.response_name,
+                        obs_name=vec.observation_name,
                         report_step=report_step,
                         observations=node.values,
                         stds=node.stds,
                         indexes=node.indices,
                     )
 
-            elif vec.observation_type == EnkfObservationImplementationType.SUMMARY_OBS:
+            elif vec.observation_type == ResponseTypes.SUMMARY:
                 observations = []
                 stds = []
                 dates = []
@@ -193,7 +193,7 @@ class EnkfObs:
                     obs_keys.append(obs.observation_key)
 
                 sum_obs.write(
-                    summary_key=vec.observation_key,
+                    summary_key=vec.observation_name,
                     obs_names=obs_keys,
                     observations=observations,
                     stds=stds,
@@ -236,7 +236,7 @@ class EnkfObs:
         return self.datasets == other.datasets
 
     def getTypedKeylist(
-        self, observation_implementation_type: EnkfObservationImplementationType
+        self, observation_implementation_type: ResponseTypes
     ) -> List[str]:
         return sorted(
             [
@@ -337,7 +337,7 @@ class EnkfObs:
 
         return {
             summary_key: ObsVector(
-                EnkfObservationImplementationType.SUMMARY_OBS,
+                ResponseTypes.SUMMARY,
                 summary_key,
                 "summary",
                 data,
@@ -488,7 +488,7 @@ class EnkfObs:
             )
         return {
             obs_key: ObsVector(
-                EnkfObservationImplementationType.SUMMARY_OBS,
+                ResponseTypes.SUMMARY,
                 summary_key,
                 "summary",
                 {date: SummaryObservation(summary_key, obs_key, value, std_dev)},
@@ -618,7 +618,7 @@ class EnkfObs:
         try:
             return {
                 obs_key: ObsVector(
-                    EnkfObservationImplementationType.GEN_OBS,
+                    ResponseTypes.GEN_DATA,
                     obs_key,
                     config_node.name,
                     {

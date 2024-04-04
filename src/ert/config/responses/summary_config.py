@@ -7,8 +7,12 @@ from typing import TYPE_CHECKING, Set, Union
 
 import xarray as xr
 
-from ._read_summary import read_summary
-from .response_config import ResponseConfig
+from ert.config._read_summary import read_summary
+from ert.config.responses.response_config import ResponseConfig
+from ert.config.responses.response_properties import (
+    ResponseDataInitialLayout,
+    ResponseTypes,
+)
 
 if TYPE_CHECKING:
     from typing import List
@@ -19,6 +23,18 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class SummaryConfig(ResponseConfig):
+    @property
+    def primary_keys(self) -> List[str]:
+        return ["time"]
+
+    @property
+    def response_type(self) -> str:
+        return ResponseTypes.SUMMARY
+
+    @property
+    def data_layout(self) -> ResponseDataInitialLayout:
+        return ResponseDataInitialLayout.ONE_FILE_WITH_ALL_NAMES
+
     input_file: str
     keys: List[str]
     refcase: Union[Set[datetime], List[str], None] = None

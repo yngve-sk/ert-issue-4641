@@ -24,16 +24,15 @@ from resdata.grid import Grid
 from ert.analysis import AnalysisEvent, SmootherSnapshot, smoother_update
 from ert.callbacks import forward_model_ok
 from ert.config import (
-    EnkfObservationImplementationType,
     ErtConfig,
     Field,
     GenKwConfig,
+    ResponseTypes,
 )
 from ert.data import MeasuredData
 from ert.data._measured_data import ObservationError, ResponseError
 from ert.load_status import LoadResult, LoadStatus
 from ert.shared.version import __version__
-from ert.storage import Ensemble
 
 from .enkf_main import EnKFMain, ensemble_context
 
@@ -214,10 +213,10 @@ class LibresFacade:
 
     def get_data_key_for_obs_key(self, observation_key: str) -> str:
         obs = self.config.enkf_obs[observation_key]
-        if obs.observation_type == EnkfObservationImplementationType.SUMMARY_OBS:
+        if obs.response_type == ResponseTypes.SUMMARY:
             return list(obs.observations.values())[0].summary_key  # type: ignore
         else:
-            return obs.data_key
+            return obs.response_name
 
     @staticmethod
     def load_all_misfit_data(ensemble: Ensemble) -> DataFrame:

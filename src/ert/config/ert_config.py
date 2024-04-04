@@ -33,8 +33,6 @@ from .analysis_config import AnalysisConfig
 from .ensemble_config import EnsembleConfig
 from .forward_model import ForwardModel
 from .model_config import ModelConfig
-from .observation_vector import ObsVector
-from .observations import EnkfObs
 from .parsing import (
     ConfigDict,
     ConfigKeys,
@@ -54,12 +52,14 @@ from .parsing.observations_parser import (
     parse,
 )
 from .queue_config import QueueConfig
-from .summary_config import SummaryConfig
+from .responses.observation_vector import ObsVector
+from .responses.observations import EnkfObs
+from .responses.summary_config import SummaryConfig
 from .workflow import Workflow
 from .workflow_job import ErtScriptLoadFailure, WorkflowJob
 
 if TYPE_CHECKING:
-    from importlib.abc import FileLoader
+    pass
 
 
 logger = logging.getLogger(__name__)

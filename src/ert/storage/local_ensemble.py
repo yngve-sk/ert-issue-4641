@@ -17,9 +17,9 @@ import xarray as xr
 from pydantic import BaseModel
 from typing_extensions import deprecated
 
-from ert.config.gen_data_config import GenDataConfig
 from ert.config.gen_kw_config import GenKwConfig
-from ert.config.observations import ObservationsIndices
+from ert.config.responses.gen_data_config import GenDataConfig
+from ert.config.responses.observations import ObservationsIndices
 from ert.storage.mode import BaseMode, Mode, require_write
 
 from .realization_storage_state import RealizationStorageState

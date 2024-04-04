@@ -25,11 +25,11 @@ from ert.config import (
     SummaryConfig,
     SurfaceConfig,
 )
-from ert.config.enkf_observation_implementation_type import (
+from ert.config.responses.enkf_observation_implementation_type import (
     EnkfObservationImplementationType,
 )
-from ert.config.general_observation import GenObservation
-from ert.config.observation_vector import ObsVector
+from ert.config.responses.general_observation import GenObservation
+from ert.config.responses.observation_vector import ObsVector
 from ert.storage import open_storage
 from ert.storage.mode import ModeError
 from ert.storage.realization_storage_state import RealizationStorageState

@@ -20,16 +20,16 @@ from typing import (
 import numpy as np
 import numpy.typing as npt
 
+from ert.config.responses.response_config import ResponseConfig
 from ert.field_utils import get_shape
 
 from ._read_summary import read_summary
 from .field import Field
-from .gen_data_config import GenDataConfig
 from .gen_kw_config import GenKwConfig
 from .parameter_config import ParameterConfig
 from .parsing import ConfigDict, ConfigKeys, ConfigValidationError
-from .response_config import ResponseConfig
-from .summary_config import SummaryConfig
+from .responses.gen_data_config import GenDataConfig
+from .responses.summary_config import SummaryConfig
 from .surface_config import SurfaceConfig
 
 logger = logging.getLogger(__name__)

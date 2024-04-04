@@ -7,15 +7,30 @@ import numpy as np
 import xarray as xr
 from typing_extensions import Self
 
+from ert.config._option_dict import option_dict
+from ert.config.parsing import ConfigValidationError, ErrorInfo
+from ert.config.responses.response_config import ResponseConfig
+from ert.config.responses.response_properties import (
+    ResponseDataInitialLayout,
+    ResponseTypes,
+)
 from ert.validation import rangestring_to_list
-
-from ._option_dict import option_dict
-from .parsing import ConfigValidationError, ErrorInfo
-from .response_config import ResponseConfig
 
 
 @dataclass
 class GenDataConfig(ResponseConfig):
+    @property
+    def primary_keys(self) -> List[str]:
+        return ["index", "report_step"]
+
+    @property
+    def response_type(self) -> str:
+        return ResponseTypes.GEN_DATA
+
+    @property
+    def data_layout(self) -> ResponseDataInitialLayout:
+        return ResponseDataInitialLayout.ONE_FILE_PER_NAME
+
     input_file: str = ""
     report_steps: Optional[List[int]] = None
 

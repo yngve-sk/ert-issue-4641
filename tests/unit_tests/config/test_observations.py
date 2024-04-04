@@ -14,9 +14,9 @@ from ert.config import (
     ErtConfig,
     SummaryObservation,
 )
-from ert.config.general_observation import GenObservation
-from ert.config.observation_vector import ObsVector
 from ert.config.parsing.observations_parser import ObservationConfigError
+from ert.config.responses.general_observation import GenObservation
+from ert.config.responses.observation_vector import ObsVector
 
 
 def run_simulator():
@@ -725,7 +725,7 @@ def test_that_history_observations_are_loaded(tmpdir, keys, with_ext):
         ert_config = ErtConfig.from_file("config.ert")
 
         observations = ert_config.enkf_obs
-        assert [o.observation_key for o in observations] == [local_name]
+        assert [o.observation_name for o in observations] == [local_name]
         assert observations[local_name].observations[datetime(2014, 9, 11)].value == 1.0
         assert observations[local_name].observations[datetime(2014, 9, 11)].std == 100.0
 
@@ -864,15 +864,15 @@ def test_that_history_observation_errors_are_calculated_correctly(tmpdir):
 
         observations = ert_config.enkf_obs
 
-        assert observations["FGPR"].observation_key == "FGPR"
+        assert observations["FGPR"].observation_name == "FGPR"
         assert observations["FGPR"].observations[datetime(2014, 9, 11)].value == 15.0
         assert observations["FGPR"].observations[datetime(2014, 9, 11)].std == 1.5
 
-        assert observations["FOPR"].observation_key == "FOPR"
+        assert observations["FOPR"].observation_name == "FOPR"
         assert observations["FOPR"].observations[datetime(2014, 9, 11)].value == 20.0
         assert observations["FOPR"].observations[datetime(2014, 9, 11)].std == 0.2
 
-        assert observations["FWPR"].observation_key == "FWPR"
+        assert observations["FWPR"].observation_name == "FWPR"
         assert observations["FWPR"].observations[datetime(2014, 9, 11)].value == 25.0
         assert observations["FWPR"].observations[datetime(2014, 9, 11)].std == 10000
 
@@ -920,11 +920,11 @@ def test_that_std_cutoff_is_applied(tmpdir):
         ert_config = ErtConfig.from_file("config.ert")
 
         observations = ert_config.enkf_obs
-        assert observations["FGPR"].observation_key == "FGPR"
+        assert observations["FGPR"].observation_name == "FGPR"
         assert observations["FGPR"].observations[datetime(2014, 9, 11)].value == 15.0
         assert observations["FGPR"].observations[datetime(2014, 9, 11)].std == 1.5
 
-        assert observations["FOPR"].observation_key == "FOPR"
+        assert observations["FOPR"].observation_name == "FOPR"
         assert len(observations["FOPR"]) == 0
 
 
