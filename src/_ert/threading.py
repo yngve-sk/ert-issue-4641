@@ -4,6 +4,7 @@ import logging
 import os
 import signal
 import threading
+import traceback
 from threading import Thread as _Thread
 from types import FrameType
 from typing import Any, Callable, Iterable, Optional
@@ -26,6 +27,7 @@ class ErtThreadError(Exception):
         return self._exception
 
     def __str__(self) -> str:
+        traceback.print_tb(self._exception.__traceback__)
         return f"{self._exception} in thread '{self._thread.name}'"
 
 
