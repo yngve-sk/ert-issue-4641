@@ -41,7 +41,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_LOCAL_STORAGE_VERSION = 5
+_LOCAL_STORAGE_VERSION = 6
 
 
 class _Migrations(BaseModel):
@@ -272,6 +272,10 @@ class LocalStorage(BaseMode):
         the storage.
         """
 
+        for ens in self._ensembles.values():
+            ens.unify_responses()
+            ens.unify_parameters()
+
         self._ensembles.clear()
         self._experiments.clear()
 
@@ -441,6 +445,7 @@ class LocalStorage(BaseMode):
             to3,
             to4,
             to5,
+            to6,
         )
 
         try:
@@ -453,7 +458,7 @@ class LocalStorage(BaseMode):
                 self._acquire_lock()
                 self._add_migration_information(0, _LOCAL_STORAGE_VERSION, "block_fs")
             elif version < _LOCAL_STORAGE_VERSION:
-                migrations = list(enumerate([to2, to3, to4, to5], start=1))
+                migrations = list(enumerate([to2, to3, to4, to5, to6], start=1))
                 for from_version, migration in migrations[version - 1 :]:
                     migration.migrate(self.path)
                     self._add_migration_information(

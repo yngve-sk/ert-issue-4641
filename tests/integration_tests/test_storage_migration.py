@@ -133,6 +133,7 @@ def test_that_storage_matches(
             str(experiment.response_configuration) + "\n", "responses"
         )
 
+        ensemble.unify_responses()
         summary_data = ensemble.load_responses(
             "summary",
             tuple(ensemble.get_realization_list_with_responses("summary")),

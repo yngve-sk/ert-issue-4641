@@ -122,6 +122,8 @@ def _save_param_ensemble_array_to_disk(
             ensemble, param_group, realization, param_ensemble_array[:, i]
         )
 
+    ensemble.unify_parameters()
+
 
 def _load_param_ensemble_array(
     ensemble: Ensemble,
@@ -130,60 +132,6 @@ def _load_param_ensemble_array(
 ) -> npt.NDArray[np.float_]:
     config_node = ensemble.experiment.parameter_configuration[param_group]
     return config_node.load_parameters(ensemble, param_group, iens_active_index)
-
-
-def _get_observations_and_responses(
-    ensemble: Ensemble,
-    selected_observations: Iterable[str],
-    iens_active_index: npt.NDArray[np.int_],
-) -> Tuple[
-    npt.NDArray[np.float_],
-    npt.NDArray[np.float_],
-    npt.NDArray[np.float_],
-    npt.NDArray[np.str_],
-]:
-    """Fetches and aligns selected observations with their corresponding simulated responses from an ensemble."""
-    filtered_responses = []
-    observation_keys = []
-    observation_values = []
-    observation_errors = []
-    observations = ensemble.experiment.observations
-    for obs in selected_observations:
-        observation = observations[obs]
-        group = observation.attrs["response"]
-        all_responses = ensemble.load_responses(group, tuple(iens_active_index))
-        if "time" in observation.coords:
-            all_responses = all_responses.reindex(
-                time=observation.time,
-                method="nearest",
-                tolerance="1s",  # type: ignore
-            )
-        try:
-            observations_and_responses = observation.merge(all_responses, join="left")
-        except KeyError as e:
-            raise ErtAnalysisError(
-                f"Mismatched index for: "
-                f"Observation: {obs} attached to response: {group}"
-            ) from e
-
-        observation_keys.append([obs] * observations_and_responses["observations"].size)
-        observation_values.append(
-            observations_and_responses["observations"].data.ravel()
-        )
-        observation_errors.append(observations_and_responses["std"].data.ravel())
-
-        filtered_responses.append(
-            observations_and_responses["values"]
-            .transpose(..., "realization")
-            .values.reshape((-1, len(observations_and_responses.realization)))
-        )
-    ensemble.load_responses.cache_clear()
-    return (
-        np.concatenate(filtered_responses),
-        np.concatenate(observation_values),
-        np.concatenate(observation_errors),
-        np.concatenate(observation_keys),
-    )
 
 
 def _expand_wildcards(
@@ -211,11 +159,18 @@ def _load_observations_and_responses(
         List[ObservationAndResponseSnapshot],
     ],
 ]:
-    S, observations, errors, obs_keys = _get_observations_and_responses(
-        ensemble,
-        selected_observations,
-        iens_active_index,
-    )
+    try:
+        measured_data_df = ensemble.get_measured_data(
+            [*selected_observations], iens_active_index
+        )
+    except KeyError as e:
+        # Exit early if some observations are pointing to non-existing responses
+        raise ErtAnalysisError("No active observations for update step") from e
+
+    S = measured_data_df.vec_of_realization_values()
+    observations = measured_data_df.vec_of_obs_values()
+    errors = measured_data_df.vec_of_errors()
+    obs_keys = measured_data_df.vec_of_obs_names()
 
     # Inflating measurement errors by a factor sqrt(global_std_scaling) as shown
     # in for example evensen2018 - Analysis of iterative ensemble smoothers for
@@ -387,9 +342,13 @@ def _copy_unupdated_parameters(
 
     # Copy the non-updated parameter groups from source to target for each active realization
     for parameter_group in not_updated_parameter_groups:
-        for realization in iens_active_index:
-            ds = source_ensemble.load_parameters(parameter_group, int(realization))
-            target_ensemble.save_parameters(parameter_group, realization, ds)
+        if source_ensemble.has_combined_parameter_dataset(parameter_group):
+            unified_ds = source_ensemble.load_parameters(parameter_group)
+            target_ensemble.save_parameters_combined(parameter_group, unified_ds)
+        else:
+            for realization in iens_active_index:
+                ds = source_ensemble.load_parameters(parameter_group, int(realization))
+                target_ensemble.save_parameters(parameter_group, realization, ds)
 
 
 def analysis_ES(
