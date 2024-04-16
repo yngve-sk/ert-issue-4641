@@ -623,13 +623,13 @@ class LocalEnsemble(BaseMode):
         try:
             self.open_unified_parameter_dataset(group)
         except FileNotFoundError:
-            self._unify_parameters(group)
+            self.unify_parameters(group)
 
     def _ensure_unified_response_dataset_exists(self, group: str) -> None:
         try:
             self.open_unified_response_dataset(group)
         except FileNotFoundError:
-            self._unify_responses(group)
+            self.unify_responses(group)
 
     def load_parameters(
         self,
@@ -1142,7 +1142,7 @@ class LocalEnsemble(BaseMode):
                     for p in paths:
                         os.remove(p)
 
-    def _unify_responses(self, key: Optional[str] = None) -> None:
+    def unify_responses(self, key: Optional[str] = None) -> None:
         gen_data_keys = {
             k
             for k, c in self.experiment.response_info.items()
@@ -1189,7 +1189,7 @@ class LocalEnsemble(BaseMode):
                 "realization",
             )
 
-    def _unify_parameters(self, key: Optional[str] = None) -> None:
+    def unify_parameters(self, key: Optional[str] = None) -> None:
         self._unify_datasets(
             [key] if key is not None else list(self.experiment.parameter_info.keys()),
             "realizations",

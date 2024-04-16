@@ -532,6 +532,8 @@ class BaseRunModel:
             num_successful_realizations,
             self._simulation_arguments.minimum_required_realizations,
         )
+        run_context.ensemble.unify_parameters()
+        run_context.ensemble.unify_responses()
 
         event_logger.info(
             f"Experiment ran on QUEUESYSTEM: {self._queue_config.queue_system}"
