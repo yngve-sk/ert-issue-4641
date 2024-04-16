@@ -241,6 +241,7 @@ response_configs = st.lists(
     st.one_of(
         st.builds(
             GenDataConfig,
+            name=st.text(min_size=1, max_size=40),
         ),
         st.builds(
             SummaryConfig,
