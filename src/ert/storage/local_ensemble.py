@@ -1152,26 +1152,19 @@ class LocalEnsemble(BaseMode):
         if key == "gen_data" or key in gen_data_keys:
             # If gen data, combine across reals,
             # but also across all name(s) into one gen_data.nc
-            all_ds = []
 
             files_to_remove = []
+            to_concat = []
             for group in gen_data_keys:
                 paths = sorted(self.mount_point.glob(f"realization-*/{group}.nc"))
 
                 if len(paths) > 0:
-                    datasets_for_reals = []
                     for p in paths:
                         ds = xr.open_dataset(p, engine="scipy")
-                        datasets_for_reals.append(ds)
                         files_to_remove.append(p)
+                        to_concat.append(ds.expand_dims(name=[group]))
 
-                    ds_for_group = xr.combine_nested(
-                        datasets_for_reals, concat_dim="realization"
-                    )
-
-                    all_ds.append(ds_for_group.expand_dims(name=[group]))
-
-            xr.combine_nested(all_ds, concat_dim="name").to_netcdf(
+            xr.concat(to_concat, dim="realization").to_netcdf(
                 self._path / "gen_data.nc", engine="scipy"
             )
 
