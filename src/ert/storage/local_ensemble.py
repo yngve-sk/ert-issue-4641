@@ -5,9 +5,9 @@ import json
 import logging
 import os
 from datetime import datetime
-from functools import lru_cache
+from functools import lru_cache, reduce
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, List, Literal, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple, Union
 from uuid import UUID
 
 import numpy
@@ -96,7 +96,127 @@ class ObservationsAndResponsesData:
         return self._as_np[:, 4:].astype(float)
 
 
+class InMemoryStorageForSmallDatasets:
+    """
+    Store minimally sized datasets in-memory to avoid unnecessary read+write
+    """
+
+    def __init__(
+        self,
+        max_bytes_total: int,
+        max_bytes_per_ds: int,
+        base_dir: Optional[Path] = None,
+    ):
+        self._max_bytes_per_ds = max_bytes_per_ds
+        self._max_bytes_total = max_bytes_total
+        self.nbytes = 0
+        self._datasets: Dict[str, List[Tuple[int, xr.Dataset]]] = {}
+        self._datasets_in_tmpfile: Dict[str, List[Tuple[List[int], xr.Dataset]]] = {}
+        self._tmpdir = (
+            os.path.join(base_dir, "small_datasets_tmp_storage")
+            if base_dir is not None
+            else None
+        )
+        os.mkdir(self._tmpdir)
+        self._file_counter = 0  # Only needed for unique filenames
+
+    def store_to_tmpfiles(self):
+        if self._tmpdir is not None:
+            groups_to_remove = []
+            for group, real_ds_tuples in self._datasets.items():
+                datasets = [ds for _, ds in real_ds_tuples]
+                first_real, first_ds = real_ds_tuples[0]
+                all_reals = [real for real, _ in real_ds_tuples]
+
+                file_no = self._file_counter
+                self._file_counter += 1
+                filepath = os.path.join(
+                    self._tmpdir,
+                    f"chunk_{file_no}_{group}.nc",
+                )
+                # Can remove this piece if we name the realizations
+                # dimension the same in params and responses.
+                real_key = (
+                    "realization" if "realization" in first_ds else "realizations"
+                )
+                combined_ds = xr.combine_nested(datasets, concat_dim=real_key)
+                combined_ds.to_netcdf(filepath, engine="scipy")
+
+                if group not in self._datasets_in_tmpfile:
+                    self._datasets_in_tmpfile[group] = []
+
+                ds_handle_to_file = xr.open_dataset(filepath)
+
+                # Should not be necessary due to xr lazy load
+                # but doing this just to be sure...
+                ds_handle_to_file.close()
+                self._datasets_in_tmpfile[group].append((all_reals, ds_handle_to_file))
+                self.nbytes -= reduce(lambda p, ds: p + ds.nbytes, datasets, 0)
+                groups_to_remove.append(group)
+
+            for group in groups_to_remove:
+                del self._datasets[group]
+
+            assert self.nbytes == 0
+
+    def try_store_in_memory(self, group: str, realization: int, ds: xr.Dataset) -> bool:
+        if ds.nbytes > self._max_bytes_per_ds:
+            return False
+
+        if self.nbytes + ds.nbytes > self._max_bytes_total:
+            if self._tmpdir is not None:
+                self.store_to_tmpfiles()
+            else:
+                return False
+
+        self.nbytes += ds.nbytes
+
+        if group not in self._datasets:
+            self._datasets[group] = []
+
+        self._datasets[group].append((realization, ds))
+
+        return True
+
+    def has(self, group: str, realization: int) -> bool:
+        return (
+            group in self._datasets
+            and any(r == realization for r, _ in self._datasets[group])
+        ) or (
+            group in self._datasets_in_tmpfile
+            and any(
+                realization in reals for reals, _ in self._datasets_in_tmpfile[group]
+            )
+        )
+
+    def consume_group_if_exists(self, group: str) -> List[xr.Dataset]:
+        datasets = self._datasets.get(group, [])
+
+        group_size = reduce(lambda p, ds: p + ds.nbytes, [ds for _, ds in datasets], 0)
+        self.nbytes -= group_size
+
+        from_memory = [ds for _, ds in datasets]
+        from_files = []
+
+        if group in self._datasets_in_tmpfile:
+            for _, ds_handle in self._datasets_in_tmpfile[group]:
+                # Assumption: It is always OK to load the datasets
+                # into memory for one group, as one group can't possibly
+                # be too large to contain in memory.
+                # Datasets stored here are always below a certain
+                # max size limit anyway.
+                # IF it is too large, we would have to destroy the file after
+                # putting it into the combined one w/ lazy load
+                from_files.append(ds_handle.load())
+
+            del self._datasets_in_tmpfile[group]
+
+        return [*from_memory, *from_files]
+
+
 class LocalEnsemble(BaseMode):
+    IN_MEMORY_STORAGE_MAX_SIZE = int(1e9)
+    IN_MEMORY_STORAGE_MAX_SIZE_PER_DATASET = int(1e6)
     """
     Represents an ensemble within the local storage system of ERT.
 
@@ -136,6 +256,11 @@ class LocalEnsemble(BaseMode):
             return self._path / f"realization-{realization}"
 
         self._realization_dir = create_realization_dir
+        self._in_memory_datasets = InMemoryStorageForSmallDatasets(
+            max_bytes_total=LocalEnsemble.IN_MEMORY_STORAGE_MAX_SIZE,
+            max_bytes_per_ds=LocalEnsemble.IN_MEMORY_STORAGE_MAX_SIZE_PER_DATASET,
+            base_dir=self._path,
+        )
 
     @classmethod
     def create(
@@ -388,10 +513,13 @@ class LocalEnsemble(BaseMode):
                     in self._load_combined_response_dataset(key)["realization"]
                 )
             else:
-                return (real_dir / f"{key}.nc").exists()
+                return (
+                    real_dir / f"{key}.nc"
+                ).exists() or self._in_memory_datasets.has(key, realization)
 
         return all(
-            (real_dir / f"{response}.nc").exists()
+            self._in_memory_datasets.has(response, realization)
+            or (real_dir / f"{response}.nc").exists()
             or (
                 self._has_combined_response_dataset(response)
                 and realization
@@ -432,6 +560,7 @@ class LocalEnsemble(BaseMode):
 
         return any(
             (self._realization_dir(i) / f"{response_key}.nc").exists()
+            or self._in_memory_datasets.has(response_key, i)
             for i in range(self.ensemble_size)
         )
 
@@ -919,11 +1048,14 @@ class LocalEnsemble(BaseMode):
         if group not in self.experiment.parameter_configuration:
             raise ValueError(f"{group} is not registered to the experiment.")
 
+        if "realizations" not in dataset.dims:
+            dataset = dataset.expand_dims(realizations=[realization], axis=0)
+
+        if self._in_memory_datasets.try_store_in_memory(group, realization, dataset):
+            return None
+
         path = self._realization_dir(realization) / f"{group}.nc"
         path.parent.mkdir(exist_ok=True)
-
-        if "realizations" not in dataset.dims:
-            dataset = dataset.expand_dims(realizations=[realization])
 
         dataset.to_netcdf(path, engine="scipy")
 
@@ -961,6 +1093,9 @@ class LocalEnsemble(BaseMode):
 
         if "realization" not in data.dims:
             data = data.expand_dims({"realization": [realization]})
+
+        if self._in_memory_datasets.try_store_in_memory(group, realization, data):
+            return None
 
         output_path = self._realization_dir(realization)
         Path.mkdir(output_path, parents=True, exist_ok=True)
@@ -1130,19 +1265,32 @@ class LocalEnsemble(BaseMode):
         delete_after: bool = True,
     ) -> None:
         for group in groups:
+            if os.path.exists(self._path / f"{group}.nc"):
+                continue
+
             paths = sorted(self.mount_point.glob(f"realization-*/{group}.nc"))
 
-            if len(paths) > 0:
-                xr.combine_nested(
-                    [xr.open_dataset(p, engine="scipy") for p in paths],
-                    concat_dim=concat_dim,
-                ).to_netcdf(self._path / f"{group}.nc", engine="scipy")
+            datasets_in_memory = self._in_memory_datasets.consume_group_if_exists(group)
+            datasets_in_files = [xr.open_dataset(p, engine="scipy") for p in paths]
 
-                if delete_after:
-                    for p in paths:
-                        os.remove(p)
+            combined = xr.combine_nested(
+                [*datasets_in_memory, *datasets_in_files], concat_dim=concat_dim
+            )
+
+            if not combined:
+                raise ValueError("Unified dataset somehow ended up empty")
+
+            if len(paths) > 0 and delete_after:
+                for p in paths:
+                    os.remove(p)
+
+            combined.to_netcdf(self._path / f"{group}.nc")
 
     def unify_responses(self, key: Optional[str] = None) -> None:
+        if key is None:
+            for key in self.experiment.response_info:
+                self.unify_responses(key)
+
         gen_data_keys = {
             k
             for k, c in self.experiment.response_info.items()
@@ -1150,6 +1298,9 @@ class LocalEnsemble(BaseMode):
         }
 
         if key == "gen_data" or key in gen_data_keys:
+            if os.path.exists(self._path / "gen_data.nc"):
+                return None
+
             # If gen data, combine across reals,
             # but also across all name(s) into one gen_data.nc
 
@@ -1157,14 +1308,24 @@ class LocalEnsemble(BaseMode):
             to_concat = []
             for group in gen_data_keys:
                 paths = sorted(self.mount_point.glob(f"realization-*/{group}.nc"))
+                datasets_in_memory = self._in_memory_datasets.consume_group_if_exists(
+                    group
+                )
+                datasets_in_files = [xr.open_dataset(p, engine="scipy") for p in paths]
 
-                if len(paths) > 0:
-                    for p in paths:
-                        ds = xr.open_dataset(p, engine="scipy")
-                        files_to_remove.append(p)
-                        to_concat.append(ds.expand_dims(name=[group]))
+                ds_for_group = xr.concat(
+                    [
+                        ds.expand_dims(name=[group], axis=1)
+                        for ds in [*datasets_in_memory, *datasets_in_files]
+                    ],
+                    dim="realization",
+                )
+                to_concat.append(ds_for_group)
 
-            xr.concat(to_concat, dim="realization").to_netcdf(
+                files_to_remove.extend(paths)
+
+            # Ensure deterministic ordering wrt name and real
+            xr.concat(to_concat, dim="name").sortby(["realization", "name"]).to_netcdf(
                 self._path / "gen_data.nc", engine="scipy"
             )
 

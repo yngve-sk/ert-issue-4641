@@ -1,12 +1,16 @@
 import datetime
+import pathlib
 import random
+from functools import lru_cache
 
+import numpy as np
 import pandas as pd
 import pytest
 import xarray as xr
 
 from ert.config import GenDataConfig, SummaryConfig
-from ert.storage import open_storage
+from ert.storage import LocalEnsemble, open_storage
+from ert.storage.local_ensemble import InMemoryStorageForSmallDatasets
 
 
 def _create_gen_data_config_ds_and_obs(
@@ -103,20 +107,31 @@ def _create_summary_config_ds_and_obs(
 
 @pytest.mark.usefixtures("use_tmpdir")
 @pytest.mark.parametrize(
-    ("num_reals, num_gen_data, num_gen_obs, num_indices, num_report_steps"),
+    (
+        "num_reals, num_gen_data, num_gen_obs, num_indices, num_report_steps, in_memory_storage_max"
+    ),
     [
-        (100, 1, 1, 1, 1),
-        (100, 5, 3, 2, 10),
-        (200, 200, 100, 10, 200),
+        (100, 1, 1, 1, 1, int(1e9)),
+        (100, 5, 3, 2, 10, int(1e9)),
+        (200, 200, 100, 10, 200, int(1e9)),
+        (100, 1, 1, 1, 1, 0),
+        (50, 50, 25, 10, 30, 0),
     ],
 )
 def test_unify_gen_data_correctness(
-    tmpdir, num_reals, num_gen_data, num_gen_obs, num_indices, num_report_steps
+    tmpdir,
+    num_reals,
+    num_gen_data,
+    num_gen_obs,
+    num_indices,
+    num_report_steps,
+    in_memory_storage_max,
 ):
     gen_data_configs, gen_data_ds, _ = _create_gen_data_config_ds_and_obs(
         num_gen_data, num_gen_obs, num_indices, num_report_steps
     )
 
+    LocalEnsemble.IN_MEMORY_STORAGE_MAX_SIZE = in_memory_storage_max
     with open_storage(tmpdir, "w") as s:
         exp = s.create_experiment(
             responses=[*gen_data_configs],
@@ -149,21 +164,31 @@ def test_unify_gen_data_correctness(
 
 @pytest.mark.usefixtures("use_tmpdir")
 @pytest.mark.parametrize(
-    ("num_reals, num_summary_names, num_summary_timesteps, num_summary_obs"),
+    (
+        "num_reals, num_summary_names, num_summary_timesteps, num_summary_obs, in_memory_storage_max"
+    ),
     [
-        (2, 2, 2, 1),
-        (100, 10, 200, 1),
-        (500, 10, 200, 1),
-        (500, 10, 2000, 1),
+        (2, 2, 2, 1, 0),
+        (100, 10, 200, 1, 0),
+        (2, 2, 2, 1, 1e8),
+        (100, 10, 200, 1, int(1e8)),
+        (2, 2, 2, 1, 1e9),
+        (500, 10, 2000, 1, 1e9),
     ],
 )
 def test_unify_summary_correctness(
-    tmpdir, num_reals, num_summary_names, num_summary_timesteps, num_summary_obs
+    tmpdir,
+    num_reals,
+    num_summary_names,
+    num_summary_timesteps,
+    num_summary_obs,
+    in_memory_storage_max,
 ):
     summary_config, summary_ds, _ = _create_summary_config_ds_and_obs(
         num_summary_names, num_summary_timesteps, num_summary_obs
     )
 
+    LocalEnsemble.IN_MEMORY_STORAGE_MAX_SIZE = in_memory_storage_max
     with open_storage(tmpdir, "w") as s:
         exp = s.create_experiment(responses=[summary_config])
 
@@ -182,3 +207,85 @@ def test_unify_summary_correctness(
         assert combined.equals(
             xr.combine_nested(manual_concat, concat_dim="realization")
         )
+
+
+num_floats_per_ds = [1, 10, 100, 1000, 10000, 20000, 50000, 100000, 200000]
+
+
+@lru_cache
+def _create_mock_ds(realization: int, num_vals: int):
+    return xr.Dataset(
+        {
+            "values": (
+                ["realization", "argh"],
+                np.arange(num_vals).reshape((1, -1)).astype(float),
+            ),
+        },
+        coords={
+            "realization": [realization],
+        },
+    )
+
+
+@pytest.mark.usefixtures("use_tmpdir")
+@pytest.mark.parametrize(
+    "num_reals, num_floats_per_group, max_memory_size_per_ds, max_memory_size_total",
+    [
+        (100, num_floats_per_ds, 1e3, 1e9),
+        (100, num_floats_per_ds, 1e4, 1e9),
+        (100, num_floats_per_ds, 1e3, 1e2),
+        (100, num_floats_per_ds, 1e1, 1e2),
+        (100, num_floats_per_ds, 1e2, 1e2),
+        (100, num_floats_per_ds, 1e4, 1e2),
+    ],
+)
+def test_inmemory_storage_correctness(
+    tmpdir,
+    num_reals,
+    num_floats_per_group,
+    max_memory_size_per_ds,
+    max_memory_size_total,
+):
+    # Mocked fixed-size ds will fail if we enable consolidating&writing as we go
+    smalls = InMemoryStorageForSmallDatasets(
+        int(max_memory_size_total), int(max_memory_size_per_ds), tmpdir
+    )
+
+    memory_used = 0
+    for i, num_floats_in_ds in enumerate(num_floats_per_group):
+        group_name = f"group_{i}"
+        for real in range(num_reals):
+            mock_ds = _create_mock_ds(real, int(num_floats_in_ds))
+            memory_used_if_stored = memory_used + mock_ds.nbytes
+            # mock_ds = MockXRDataset(nbytes=num_floats_in_ds)
+            did_store = smalls.try_store_in_memory(group_name, real, mock_ds)
+
+            if mock_ds.nbytes > max_memory_size_per_ds:
+                assert smalls.nbytes == memory_used
+                assert not did_store
+                mock_ds.to_netcdf(f"ds_g:{group_name}_i:{real}")
+            elif memory_used_if_stored > max_memory_size_total:
+                assert did_store
+                memory_used = mock_ds.nbytes
+                assert smalls.nbytes == memory_used
+            else:
+                assert did_store
+                assert smalls.nbytes == memory_used_if_stored
+                memory_used = memory_used_if_stored
+
+    # Remove ds for one group at a time
+    for i, _ in enumerate(num_floats_per_group):
+        group_name = f"group_{i}"
+
+        datasets_in_memory = smalls.consume_group_if_exists(group_name)
+        datasets_in_files = pathlib.Path(tmpdir).glob(f"ds_g:{group_name}*")
+
+        datasets_all = [
+            *[xr.open_dataset(p) for p in datasets_in_files],
+            *datasets_in_memory,
+        ]
+        recombined = xr.combine_nested(datasets_all, concat_dim="realization")
+
+        assert len(recombined["realization"]) == num_reals
+
+    assert smalls.nbytes == 0
