@@ -112,12 +112,16 @@ class InMemoryStorageForSmallDatasets:
         self.nbytes = 0
         self._datasets: Dict[str, List[Tuple[int, xr.Dataset]]] = {}
         self._datasets_in_tmpfile: Dict[str, List[Tuple[List[int], xr.Dataset]]] = {}
-        self._tmpdir = (
-            os.path.join(base_dir, "small_datasets_tmp_storage")
-            if base_dir is not None
-            else None
-        )
-        os.mkdir(self._tmpdir)
+
+        if base_dir is not None:
+            self._tmpdir = os.path.join(base_dir, "small_datasets_tmp_storage")
+
+            if not os.path.exists(self._tmpdir):
+                os.mkdir(self._tmpdir)
+        else:
+            # Indicates no use of temp folder to dump accumulated small datasets
+            self._tmpdir = None
+
         self._file_counter = 0  # Only needed for unique filenames
 
     def store_to_tmpfiles(self):
