@@ -1258,6 +1258,27 @@ class LocalEnsemble(BaseMode):
 
         return ObservationsAndResponsesData(long_np)
 
+    @staticmethod
+    def _ensure_correct_coordinate_order(ds: xr.Dataset) -> xr.Dataset:
+        """
+        Ensures correct coordinate order or response/param dataset.
+        Slightly less performant than not doing it, but ensure the
+        correct coordinate order is applied when doing .to_dataframe().
+        It is possible to omit using this and instead pass in the correct
+        dim order when doing .to_dataframe(), which is always the same as
+        the .dims of the first data var of this dataset.
+        """
+        # Just to make the order right when
+        # doing .to_dataframe()
+        # (it seems notoriously hard to tell xarray to just reorder
+        # the dimensions/coordinate labels)
+        data_vars = list(ds.data_vars.keys())
+
+        # We assume only data vars with the same dimensions,
+        # i.e., (realization, *index) for all of them.
+        dim_order_of_first_var = ds[data_vars[0]].dims
+        return ds[[*dim_order_of_first_var, *data_vars]]
+
     def _unify_datasets(
         self,
         groups: List[str],
@@ -1276,6 +1297,8 @@ class LocalEnsemble(BaseMode):
             combined = xr.combine_nested(
                 [*datasets_in_memory, *datasets_in_files], concat_dim=concat_dim
             )
+
+            combined = self._ensure_correct_coordinate_order(combined)
 
             if not combined:
                 raise ValueError("Unified dataset somehow ended up empty")
@@ -1325,9 +1348,9 @@ class LocalEnsemble(BaseMode):
                 files_to_remove.extend(paths)
 
             # Ensure deterministic ordering wrt name and real
-            xr.concat(to_concat, dim="name").sortby(["realization", "name"]).to_netcdf(
-                self._path / "gen_data.nc", engine="scipy"
-            )
+            ds = xr.concat(to_concat, dim="name").sortby(["realization", "name"])
+            ds = self._ensure_correct_coordinate_order(ds)
+            ds.to_netcdf(self._path / "gen_data.nc", engine="scipy")
 
             for f in files_to_remove:
                 os.remove(f)
