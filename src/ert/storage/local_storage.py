@@ -268,6 +268,10 @@ class LocalStorage(BaseMode):
         the storage.
         """
 
+        for ens in self._ensembles.values():
+            ens.unify_responses()
+            ens.unify_parameters()
+
         self._ensembles.clear()
         self._experiments.clear()
 
