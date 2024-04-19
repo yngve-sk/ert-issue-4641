@@ -461,6 +461,7 @@ class LocalEnsemble(BaseMode):
                 in self._load_combined_parameter_dataset(parameter)["realizations"]
             )
             or (path / f"{parameter}.nc").exists()
+            or self._in_memory_datasets.has(parameter, realization)
             for parameter in self.experiment.parameter_configuration
         )
 
@@ -1297,21 +1298,20 @@ class LocalEnsemble(BaseMode):
 
             datasets_in_memory = self._in_memory_datasets.consume_group_if_exists(group)
             datasets_in_files = [xr.open_dataset(p, engine="scipy") for p in paths]
+            all_datasets = [*datasets_in_memory, *datasets_in_files]
 
-            combined = xr.combine_nested(
-                [*datasets_in_memory, *datasets_in_files], concat_dim=concat_dim
-            )
+            if all_datasets:
+                combined = xr.combine_nested(all_datasets, concat_dim=concat_dim)
+                combined = self._ensure_correct_coordinate_order(combined)
 
-            combined = self._ensure_correct_coordinate_order(combined)
+                if not combined:
+                    raise ValueError("Unified dataset somehow ended up empty")
 
-            if not combined:
-                raise ValueError("Unified dataset somehow ended up empty")
+                if len(paths) > 0 and delete_after:
+                    for p in paths:
+                        os.remove(p)
 
-            if len(paths) > 0 and delete_after:
-                for p in paths:
-                    os.remove(p)
-
-            combined.to_netcdf(self._path / f"{group}.nc")
+                combined.to_netcdf(self._path / f"{group}.nc")
 
     def unify_responses(self, key: Optional[str] = None) -> None:
         if key is None:
@@ -1339,25 +1339,25 @@ class LocalEnsemble(BaseMode):
                     group
                 )
                 datasets_in_files = [xr.open_dataset(p, engine="scipy") for p in paths]
+                all_datasets = [*datasets_in_memory, *datasets_in_files]
 
-                ds_for_group = xr.concat(
-                    [
-                        ds.expand_dims(name=[group], axis=1)
-                        for ds in [*datasets_in_memory, *datasets_in_files]
-                    ],
-                    dim="realization",
-                )
-                to_concat.append(ds_for_group)
+                if all_datasets:
+                    ds_for_group = xr.concat(
+                        [ds.expand_dims(name=[group], axis=1) for ds in all_datasets],
+                        dim="realization",
+                    )
+                    to_concat.append(ds_for_group)
 
-                files_to_remove.extend(paths)
+                    files_to_remove.extend(paths)
 
             # Ensure deterministic ordering wrt name and real
-            ds = xr.concat(to_concat, dim="name").sortby(["realization", "name"])
-            ds = self._ensure_correct_coordinate_order(ds)
-            ds.to_netcdf(self._path / "gen_data.nc", engine="scipy")
+            if to_concat:
+                ds = xr.concat(to_concat, dim="name").sortby(["realization", "name"])
+                ds = self._ensure_correct_coordinate_order(ds)
+                ds.to_netcdf(self._path / "gen_data.nc", engine="scipy")
 
-            for f in files_to_remove:
-                os.remove(f)
+                for f in files_to_remove:
+                    os.remove(f)
 
         else:
             # If it is a summary, just combined across reals
