@@ -1,6 +1,6 @@
 import dataclasses
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import xarray as xr
 
@@ -8,7 +8,6 @@ from ert.config.commons import Refcase
 
 from .observation_vector import ObsVector
 from .parameter_config import CustomDict
-from .response_properties import ResponseDataInitialLayout
 
 
 @dataclasses.dataclass
@@ -29,31 +28,6 @@ class ResponseConfig(ABC):
     @staticmethod
     @abstractmethod
     def parse_observation(args: ObsArgs) -> Dict[str, ObsVector]: ...
-
-    @property
-    @abstractmethod
-    def primary_keys(self) -> List[str]:
-        """
-        Represents primary keys used to identify unique entries in the response.
-        Does not include "name" which is the name of the
-        individual response of this type.
-        For example, for summary it is "time", and for
-        gen_data it is ("index", "report_step").
-        """
-        ...
-
-    @property
-    @abstractmethod
-    def response_type(self) -> str:
-        """
-        Type alias for the implemented response. For example 'gen_data', 'summary'.
-        New types must not conflict with existing types.
-        """
-        ...
-
-    @property
-    @abstractmethod
-    def data_layout(self) -> ResponseDataInitialLayout: ...
 
     @abstractmethod
     def read_from_file(self, run_path: str, iens: int) -> xr.Dataset: ...

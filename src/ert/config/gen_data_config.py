@@ -16,7 +16,6 @@ from ert.config.parsing.config_errors import ConfigWarning
 from ert.config.parsing.observations_parser import GenObsValues, ObservationConfigError
 from ert.config.response_config import ObsArgs, ResponseConfig
 from ert.config.response_properties import (
-    ResponseDataInitialLayout,
     ResponseTypes,
 )
 from ert.validation import rangestring_to_list
@@ -30,18 +29,6 @@ class GenDataConfig(ResponseConfig):
     def __post_init__(self) -> None:
         if isinstance(self.report_steps, list):
             self.report_steps = list(set(self.report_steps))
-
-    @property
-    def primary_keys(self) -> List[str]:
-        return ["index", "report_step"]
-
-    @property
-    def response_type(self) -> str:
-        return ResponseTypes.GEN_DATA
-
-    @property
-    def data_layout(self) -> ResponseDataInitialLayout:
-        return ResponseDataInitialLayout.ONE_FILE_PER_NAME
 
     @staticmethod
     def _create_gen_obs(

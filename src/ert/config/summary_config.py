@@ -19,7 +19,6 @@ from ert.config.parsing.observations_parser import (
 )
 from ert.config.response_config import ObsArgs, ResponseConfig
 from ert.config.response_properties import (
-    ResponseDataInitialLayout,
     ResponseTypes,
 )
 
@@ -50,18 +49,6 @@ class SummaryConfig(ResponseConfig):
         self.keys = sorted(set(self.keys))
         if len(self.keys) < 1:
             raise ValueError("SummaryConfig must be given at least one key")
-
-    @property
-    def primary_keys(self) -> List[str]:
-        return ["time"]
-
-    @property
-    def response_type(self) -> str:
-        return ResponseTypes.SUMMARY
-
-    @property
-    def data_layout(self) -> ResponseDataInitialLayout:
-        return ResponseDataInitialLayout.ONE_FILE_WITH_ALL_NAMES
 
     @staticmethod
     def _parse_summary_obs(args: ObsArgs) -> Dict[str, ObsVector]:
