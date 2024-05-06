@@ -8,3 +8,13 @@ class ResponseTypes(StrEnum):
 
     GEN_DATA = "GEN_DATA"
     SUMMARY = "SUMMARY"
+
+
+class ResponseDataInitialLayout(StrEnum):
+    """
+    Represents how data from a forward model run is organized initially within
+    each realization folder.
+    """
+
+    ONE_FILE_PER_NAME = "ONE_FILE_PER_NAME"  # ex: gen data files
+    ONE_FILE_WITH_ALL_NAMES = "ONE_FILE_WITH_ALL_NAMES"  # ex: summary files

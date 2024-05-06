@@ -1,6 +1,6 @@
 import dataclasses
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import xarray as xr
 
@@ -8,6 +8,7 @@ from ert.config.commons import Refcase
 
 from .observation_vector import ObsVector
 from .parameter_config import CustomDict
+from .response_properties import ResponseDataInitialLayout
 
 
 @dataclasses.dataclass
@@ -36,3 +37,32 @@ class ResponseConfig(ABC):
         data = dataclasses.asdict(self, dict_factory=CustomDict)
         data["_ert_kind"] = self.__class__.__name__
         return data
+
+    @property
+    @abstractmethod
+    def primary_keys(self) -> List[str]:
+        """
+        Represents primary keys used to identify unique entries in the response.
+        Does not include "name" which is the name of the
+        individual response of this type.
+        For example, for summary it is "time", and for
+        gen_data it is ("index", "report_step").
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def response_type(self) -> str:
+        """
+        Type alias for the implemented response. For example 'gen_data', 'summary'.
+        New types must not conflict with existing types.
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def data_layout(self) -> ResponseDataInitialLayout: ...
+
+    @property
+    @abstractmethod
+    def from_config_list(self) -> None: ...
