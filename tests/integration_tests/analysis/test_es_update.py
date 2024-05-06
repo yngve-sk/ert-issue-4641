@@ -497,3 +497,17 @@ def test_that_update_works_with_failed_realizations():
             for idx, v in enumerate(prior.get_ensemble_state())
             if v == RealizationStorageState.LOAD_FAILURE
         )
+
+
+def test_that_observations_keep_sorting(snake_oil_case_storage, snake_oil_storage):
+    """
+    The order of the observations influence the update as it affects the
+    perturbations, so we make sure we maintain the order throughout.
+    """
+    ert_config = snake_oil_case_storage
+    prior_ens = snake_oil_storage.get_ensemble_by_name("default_0")
+    assert ert_config.observation_keys == prior_ens.experiment.observation_keys
+    for observations in prior_ens.experiment.observations.values():
+        assert observations["observations"].dims[0:2] == ("name", "obs_name")
+        primary_key = observations["observations"].dims[2:]
+        assert observations.sortby(*primary_key).equals(observations)
