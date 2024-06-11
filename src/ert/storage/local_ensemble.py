@@ -328,12 +328,11 @@ class LocalEnsemble(BaseMode):
             and `False` otherwise.
         """
 
-        return np.array(
-            [
-                self._responses_exist_for_realization(i, key)
-                for i in range(self.ensemble_size)
-            ]
-        )
+        l = []
+        for i in range(self.ensemble_size):
+            print(f"l.append(self._responses_exist_for_realization({i}, {key}))")
+            l.append(self._responses_exist_for_realization(i, key))
+        return np.array(l)
 
     def _parameters_exist_for_realization(self, realization: int) -> bool:
         """

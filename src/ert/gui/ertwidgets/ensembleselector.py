@@ -59,24 +59,38 @@ class EnsembleSelector(QComboBox):
         return self.itemData(self.currentIndex())
 
     def populate(self) -> None:
+        print("block = self.blockSignals(True)")
         block = self.blockSignals(True)
 
+        print("self.clear()")
         self.clear()
 
+        print("if self._ensemble_list():")
         if self._ensemble_list():
+            print("self.setEnabled(True)")
             self.setEnabled(True)
 
+        print("for ensemble in self._ensemble_list():")
         for ensemble in self._ensemble_list():
+            print("self.addItem(ensemble.name, userData=ensemble)")
             self.addItem(ensemble.name, userData=ensemble)
 
+        print(
+            """current_index = self.findData(
+            self.notifier.current_ensemble, Qt.ItemDataRole.UserRole
+        )"""
+        )
         current_index = self.findData(
             self.notifier.current_ensemble, Qt.ItemDataRole.UserRole
         )
 
+        print("self.setCurrentIndex(max(current_index, 0))")
         self.setCurrentIndex(max(current_index, 0))
 
+        print("self.blockSignals(block)")
         self.blockSignals(block)
 
+        print("self.ensemble_populated.emit()")
         self.ensemble_populated.emit()
 
     def _ensemble_list(self) -> Iterable[Ensemble]:

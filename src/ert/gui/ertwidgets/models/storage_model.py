@@ -142,8 +142,11 @@ class StorageModel(QAbstractItemModel):
 
     @Slot(Storage)
     def reloadStorage(self, storage: Storage) -> None:
+        print("self.beginResetModel()")
         self.beginResetModel()
+        print("self._load_storage(storage)")
         self._load_storage(storage)
+        print("self.endResetModel()")
         self.endResetModel()
 
     @Slot()

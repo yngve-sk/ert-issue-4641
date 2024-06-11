@@ -77,12 +77,19 @@ class EvaluateEnsemblePanel(ExperimentConfigPanel):
         )
 
     def _realizations_from_fs(self) -> None:
+        print("ensemble = self._ensemble_selector.selected_ensemble")
         ensemble = self._ensemble_selector.selected_ensemble
+        print("if ensemble:")
         if ensemble:
+            print("parameters = ensemble.get_realization_mask_with_parameters()")
             parameters = ensemble.get_realization_mask_with_parameters()
+            print("missing_responses = ~ensemble.get_realization_mask_with_responses()")
             missing_responses = ~ensemble.get_realization_mask_with_responses()
+            print("failures = ~ensemble.get_realization_mask_without_failure()")
             failures = ~ensemble.get_realization_mask_without_failure()
+            print("mask = np.logical_and(")
             mask = np.logical_and(
                 parameters, np.logical_or(missing_responses, failures)
             )
+            print("self._active_realizations_field.model.setValueFromMask(mask)")
             self._active_realizations_field.model.setValueFromMask(mask)

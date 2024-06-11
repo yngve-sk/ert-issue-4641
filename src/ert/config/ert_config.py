@@ -241,6 +241,7 @@ class ErtConfig:
 
         try:
             ensemble_config = EnsembleConfig.from_dict(config_dict=config_dict)
+            print("Created ensemble config")
         except ConfigValidationError as err:
             errors.append(err)
 

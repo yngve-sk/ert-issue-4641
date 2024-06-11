@@ -110,8 +110,12 @@ def _start_initial_gui_window(
                 plugin_manager.forward_model_steps if plugin_manager else []
             ).from_file(args.config)
 
+            print("Created ert config")
+
             local_storage_set_ert_config(ert_config)
+            print("Set ert config for local storage")
             ert = EnKFMain(ert_config)
+            print("Created enkfmain")
         except ConfigValidationError as error:
             config_warnings = [
                 cast(ConfigWarning, w.message).info
@@ -165,8 +169,11 @@ def _start_initial_gui_window(
         logger.info("Suggestion shown in gui '%s'", msg)
     for msg in config_warnings:
         logger.info("Warning shown in gui '%s'", msg)
+    print("Opening storage")
     storage = open_storage(ert_config.ens_path, mode="w")
+    print("Opened storage")
     _main_window = _setup_main_window(ert, args, log_handler, storage, plugin_manager)
+    print("Done setting up main window")
     if deprecations or config_warnings:
 
         def continue_action() -> None:
@@ -237,17 +244,24 @@ def _setup_main_window(
 ) -> ErtMainWindow:
     # window reference must be kept until app.exec returns:
     facade = LibresFacade(ert)
+    print("facade = LibresFacade(ert)")
     config_file = args.config
+    print("config_file = args.config")
     config = ert.ert_config
+    print("config = ert.ert_config")
     window = ErtMainWindow(config_file, plugin_manager)
+    print("window = ErtMainWindow(config_file, plugin_manager)")
     window.notifier.set_storage(storage)
+    print("window.notifier.set_storage(storage)")
     window.setWidget(ExperimentPanel(ert, window.notifier, config_file))
+    print("window.setWidget(ExperimentPanel(ert, window.notifier, config_file))")
     plugin_handler = PluginHandler(
         ert,
         window.notifier,
         [wfj for wfj in ert.ert_config.workflow_jobs.values() if wfj.is_plugin()],
         window,
     )
+    print("plugin_handler = PluginHandler(")
 
     window.addDock(
         "Configuration summary",

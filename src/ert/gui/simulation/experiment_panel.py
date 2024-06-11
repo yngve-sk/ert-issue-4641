@@ -310,7 +310,9 @@ class ExperimentPanel(QWidget):
             self.validationStatusChanged()
 
     def validationStatusChanged(self) -> None:
+        print("widget = self._experiment_widgets[self.get_current_experiment_type()]")
         widget = self._experiment_widgets[self.get_current_experiment_type()]
+        print("self.run_button.setEnabled(")
         self.run_button.setEnabled(
             self.run_button.text() == EXPERIMENT_READY_TO_RUN_BUTTON_MESSAGE
             and widget.isConfigurationValid()

@@ -99,11 +99,17 @@ class LocalStorage(BaseMode):
             if not any(self.path.glob("*")):
                 # No point migrating if storage is empty
                 ignore_migration_check = True
+            print("Acquiring lock")
             self._acquire_lock()
+            print("Acquired lock")
             if not ignore_migration_check:
+                print("Migrating...")
                 self._migrate()
+                print("Migrating done")
+            print("Loading index")
             self._index = self._load_index()
             self._ensure_fs_version_exists()
+            print("Save index")
             self._save_index()
         elif (version := _storage_version(self.path)) is not None:
             if version < _LOCAL_STORAGE_VERSION:
@@ -125,10 +131,13 @@ class LocalStorage(BaseMode):
         changes made to the underlying file system since the storage was last
         accessed.
         """
-
+        print("Refreshing")
         self._index = self._load_index()
+        print("Loaded index")
         self._ensembles = self._load_ensembles()
+        print("Loaded ensembles")
         self._experiments = self._load_experiments()
+        print("Loaded experiments")
 
     def get_experiment(self, uuid: UUID) -> LocalExperiment:
         """
