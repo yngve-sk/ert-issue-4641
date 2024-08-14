@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 import sys
 
-from ecl_config import FlowConfig
-from ecl_run import run
+from flow_config import FlowConfig
+from flow_run import run
 
 if __name__ == "__main__":
     config = FlowConfig()
