@@ -27,6 +27,7 @@
         max-width: 250px;
         margin: 5px;
         border-radius: 5px;
+        color: gray;
         justify-content: center;
         align-items: center;
         background: #0000004d;
@@ -38,6 +39,7 @@
     .exp-wrap.selected, .exp-wrap:hover {
         background: #3535354d;
         border: 1px #ffffff3d solid;
+        color: white;
     }
 
     .exps-container {
