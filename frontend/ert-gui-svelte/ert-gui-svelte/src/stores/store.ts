@@ -34,9 +34,9 @@ const fetchExperiments = async () => {
       }
       const data = await res.json();
       experiments.set(data);
-      
+
       if (data.length > 0 && !get(selectedExperimentId)) {
-        selectedExperimentId.set(data[0].id);
+        selectedExperimentId.set(data[data.length - 1].id);
       }
     } catch (error) {
       console.error("Failed to fetch experiments:", error);
@@ -62,7 +62,7 @@ export interface RealizationState {
 
 export interface FullSnapshotEvent {
     event_type: "FullSnapshotEvent",
-    iteration_label: string, 
+    iteration_label: string,
 	current_iteration: number,
 	total_iterations: number,
 	progress: number,
@@ -114,7 +114,7 @@ const ws = () => {
 
   ws()
 
- 
+
   setInterval(ws, 1000)
 
   let eventIndex = 0
@@ -122,7 +122,7 @@ const ws = () => {
   const graduallyAddRenderedEvents = () => {
     renderedEvents.set(allEvents.slice(0, ++eventIndex))
   }
-  
+
   theInterval = setInterval(graduallyAddRenderedEvents, 200)
 
   selectedExperimentId.subscribe((value) => {

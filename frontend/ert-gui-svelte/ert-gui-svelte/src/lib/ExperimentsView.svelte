@@ -1,14 +1,16 @@
 <script lang="ts">
     import { renderedEvents, experiments, type Experiment, selectedExperimentId } from "../stores/store"
     import ExperimentsView from "./ExperimentsView.svelte";
+
+
 </script>
 
 <div>
     <div>Selected experiment: {$selectedExperimentId}</div>
     <p>All experiments</p>
-    <div class="exps-container">     
+    <div class="exps-container">
         {#each $experiments as exp}
-            <div 
+            <div
                 role="button"
                 class="exp-wrap"
                 tabindex="0"
