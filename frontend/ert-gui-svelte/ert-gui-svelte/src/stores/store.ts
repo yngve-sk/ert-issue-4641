@@ -126,5 +126,6 @@ const ws = () => {
 
   selectedExperimentId.subscribe((value) => {
     hasRunWS = false
+    allEvents.length = 0
     eventIndex = 0
   })
