@@ -1,14 +1,12 @@
 <script lang="ts">
     import { renderedEvents, experiments, type Experiment } from "../stores/store"
+  import EventView from "./EventView.svelte";
+  import ExperimentsView from "./ExperimentsView.svelte";
+  import RunDialog from "./RunDialog.svelte";
 </script>
 
 <div>
-    <p>All experiments</p>
-    {#each $experiments as exp}
-        <div>{exp.type}</div>
-    {/each}
-    <p>All Events</p>
-    {#each $renderedEvents as e}
-        <div>{e.event_type}</div>
-    {/each}
+    <ExperimentsView/>
+    <EventView/>
+    <RunDialog/>
 </div>
