@@ -46,3 +46,5 @@ src/ert/shared/version.py
 
 # config for pyright
 pyrightconfig.json
+
+**/node_modules
