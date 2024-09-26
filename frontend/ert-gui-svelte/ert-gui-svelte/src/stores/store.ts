@@ -93,6 +93,7 @@ const ws = () => {
 
     if (hasRunWS) return
     hasRunWS = true
+    allEvents.length = 0
     const wsUrl = `ws://127.0.0.1:8000/experiments/${get(selectedExperimentId)}/events`;
     const socket = new WebSocket(wsUrl);
 
