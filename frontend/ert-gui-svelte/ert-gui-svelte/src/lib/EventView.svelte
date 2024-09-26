@@ -37,7 +37,7 @@
     display: flex;
     flex-flow: wrap;
     justify-content: flex-start;
-    width: 100vw;
+    width: 100%;
  }
  .single-event {
     margin: 10px;
