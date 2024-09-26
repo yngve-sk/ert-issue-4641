@@ -1,5 +1,6 @@
 import { writable, type Writable, get } from 'svelte/store'
 import type { Experiment, FullSnapshotEvent } from '../types'
+import { writeSnapshot } from './consolidatedSnapshots'
 
 const urlParams = new URLSearchParams(window.location.search)
 const serverURL = decodeURIComponent(
@@ -76,7 +77,23 @@ const ws = () => {
 
   let eventIndex = 0
   let theInterval = null
+  const snapshotsPerIteration = {}
+
   const graduallyAddRenderedEvents = () => {
+    if (eventIndex == allEvents.length) {
+      return
+    }
+
+    const nextEvent = allEvents[eventIndex]
+    if (
+      "event_type" in nextEvent && (
+        nextEvent.event_type == "FullSnapshotUpdateEvent" || 
+        nextEvent.event_type == "SnapshotUpdateEvent"
+      )
+    ) {
+      writeSnapshot(nextEvent)
+    }
+
     renderedEvents.set(allEvents.slice(0, ++eventIndex))
   }
 

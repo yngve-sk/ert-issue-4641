@@ -8,5 +8,5 @@
 <div>
     <ExperimentsView/>
     <EventView/>
-    <RunDialog/>
+    <!--RunDialog/-->
 </div>
