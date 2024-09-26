@@ -12,10 +12,20 @@ from ert.storage import open_storage
 
 from .experiment_task import EndTaskEvent, ExperimentTask
 from .models import Experiment, ExperimentOut
+from fastapi.middleware.cors import CORSMiddleware
 
 experiments: Dict[str, ExperimentTask] = {}
 app = FastAPI()
 
+origins = ["*"]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 async def root():
