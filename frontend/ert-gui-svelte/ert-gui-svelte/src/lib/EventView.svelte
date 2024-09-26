@@ -3,13 +3,13 @@
      function getColor(e: event) {
         switch (e.event_type) {
             case 'SnapshotUpdateEvent':
-                return "blue"
+                return "Navy"
             case "FullSnapshotEvent":
-                return "red"
+                return "Maroon"
             case "EndEvent":
-                return "green"
+                return "Olive"
             default:
-                return "orange"
+                return "SandyBrown"
      }
     }
 
