@@ -1,4 +1,5 @@
-import { readable, writable, type Readable, type Writable, get } from 'svelte/store'
+import { writable, type Writable, get } from 'svelte/store'
+import type { Experiment, FullSnapshotEvent } from '../types'
 
 const urlParams = new URLSearchParams(window.location.search)
 const serverURL = decodeURIComponent(
@@ -15,12 +16,6 @@ const createQueryString = (obj: object): string => {
     const urlParams = new URLSearchParams()
     Object.entries(obj).forEach(([k, v]) => urlParams.append(k, v.toString()))
     return urlParams.toString()
-}
-
-
-export interface Experiment {
-    id: string,
-    type: string
 }
 
 export const experiments: Writable<Experiment[]> = writable([])
@@ -45,45 +40,7 @@ const fetchExperiments = async () => {
 
 setInterval(fetchExperiments, 1000)
 
-type Status = "Waiting" | "Pending"
 
-class A {}
-class B {}
-
-export interface RealizationState {
-    status: Status
-    active: boolean
-    forward_models: Record<string, {
-        status: string,
-        index: string,
-        name: string,
-    }>
-}
-
-export interface FullSnapshotEvent {
-    event_type: "FullSnapshotEvent",
-    iteration_label: string,
-	current_iteration: number,
-	total_iterations: number,
-	progress: number,
-	realization_count: number,
-	status_count: {
-        Pending?: number
-		Waiting?: number
-	},
-	iteration: 0,
-	timestamp: string,
-	snapshot: {
-        metadata: {
-            aggr_job_status_colors: Record<string,string>,
-            real_status_colors: Record<string, string>,
-            sorted_real_ids: string[],
-            sorted_forward_model_ids: Record<string, string>,
-        },
-        status: "Unknown",
-        reals: Record<string, RealizationState>
-    }
-}
 
 let hasRunWS = false
 const allEvents: (FullSnapshotEvent | any)[] = []

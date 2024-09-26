@@ -1,6 +1,6 @@
 
 <script lang="ts">
-import { renderedEvents, experiments, type Experiment } from "../stores/store"
+import { renderedEvents, experiments } from "../stores/store"
 </script>
 
 <div>

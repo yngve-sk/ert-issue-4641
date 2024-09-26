@@ -1,8 +1,5 @@
 <script lang="ts">
-    import { renderedEvents, experiments, type Experiment, selectedExperimentId } from "../stores/store"
-    import ExperimentsView from "./ExperimentsView.svelte";
-
-
+    import { experiments, selectedExperimentId } from "../stores/store"
 </script>
 
 <div>

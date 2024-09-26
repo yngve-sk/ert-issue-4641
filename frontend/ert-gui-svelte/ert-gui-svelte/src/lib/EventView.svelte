@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { renderedEvents, experiments, type Experiment } from "../stores/store"
+    import { renderedEvents, experiments } from "../stores/store"
      function getColor(e: event) {
         switch (e.event_type) {
             case 'SnapshotUpdateEvent':
