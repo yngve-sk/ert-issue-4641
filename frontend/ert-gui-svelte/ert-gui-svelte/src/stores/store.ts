@@ -8,6 +8,7 @@ const serverURL = decodeURIComponent(
 // Just for dev
 const lag = async (t: number): Promise<void> =>
     new Promise((resolve) => setTimeout(resolve, t))
+
 const minLagMs = 0
 
 const createQueryString = (obj: object): string => {
@@ -22,7 +23,7 @@ export interface Experiment {
     type: string
 }
 
-export const experiments: Writable<Record<string, Experiment>[]> = writable([])
+export const experiments: Writable<Experiment[]> = writable([])
 export const selectedExperimentId: Writable<string> = writable("")
 
 const fetchExperiments = async () => {
@@ -112,6 +113,7 @@ const ws = () => {
 
   ws()
 
+ 
   setInterval(ws, 1000)
 
   let eventIndex = 0
@@ -121,3 +123,8 @@ const ws = () => {
   }
   
   theInterval = setInterval(graduallyAddRenderedEvents, 200)
+
+  selectedExperimentId.subscribe((value) => {
+    hasRunWS = false
+    eventIndex = 0
+  })
