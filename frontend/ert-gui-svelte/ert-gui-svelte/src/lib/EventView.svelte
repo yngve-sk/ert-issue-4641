@@ -27,7 +27,7 @@
   <p>All Events</p>
     <div class="events-container">
     {#each $renderedEvents as e}
-        <div class="single-event" style="background-color: {getColor(e)}" in:fade={{ duration: 2000 }}>{e.event_type}</div>
+        <div class="single-event" style="background-color: {getColor(e)}" in:fade={{ duration: 2000 }}>{e.event_type.split("Event")[0]}</div>
     {/each}
     </div>
 </div>
