@@ -8,7 +8,8 @@
                 return "red"
             case "EndEvent":
                 return "green"
-        return "pink"
+            default:
+                return "orange"
      }
     }
 
@@ -41,6 +42,10 @@
  .single-event {
     margin: 10px;
     color: white;
-    padding: 20px 5px 20px 5px;
+    width: 200px;
+    height: 70px;
+    align-items: center;
+    justify-content: center;
+    display: flex;
  }
 </style>
