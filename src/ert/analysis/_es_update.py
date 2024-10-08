@@ -223,6 +223,7 @@ def _get_observations_and_responses(
         indexes.append(index_1d)
 
     ensemble.load_responses.cache_clear()
+
     return (
         np.concatenate(filtered_responses),
         np.concatenate(observation_values),
@@ -276,6 +277,30 @@ def _load_observations_and_responses(
         selected_observations,
         iens_active_index,
     )
+
+    as_polars = polars.from_numpy(S)
+    as_polars = as_polars.rename({col: col.split("_")[1] for col in as_polars.columns})
+    response_cols = as_polars.columns
+
+    obs_info = polars.DataFrame(
+        {
+            "observations": polars.from_numpy(observations),
+            "errors": polars.from_numpy(errors),
+            "obs_keys": polars.from_numpy(obs_keys),
+            "indexes": polars.from_numpy(indexes),
+        }
+    )
+
+    as_polars = polars.concat([as_polars, obs_info], how="horizontal")
+    as_polars = as_polars.sort("obs_keys")
+
+    S = as_polars.select(response_cols).to_numpy()
+    observations = as_polars.select("observations").to_numpy().reshape((-1,))
+    errors = as_polars.select("errors").to_numpy().reshape((-1,))
+    obs_keys = as_polars.select("obs_keys").to_numpy().reshape((-1,))
+    indexes = as_polars.select("indexes").to_numpy().reshape((-1,))
+
+    as_polars.write_csv(ensemble.mount_point / "dumpS.csv")
 
     # Inflating measurement errors by a factor sqrt(global_std_scaling) as shown
     # in for example evensen2018 - Analysis of iterative ensemble smoothers for
