@@ -338,7 +338,7 @@ def _load_observations_and_responses(
                         "index": indexes[obs_group_mask],
                         "obs_key": obs_keys[obs_group_mask],
                         "scaling_factor": polars.Series(
-                            scaling_factors, dtype=polars.Float32
+                            scaling_factors, dtype=polars.Float64
                         ),
                     }
                 )

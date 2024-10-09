@@ -122,7 +122,7 @@ class GenDataConfig(ResponseConfig):
                         np.full(len(data), report_step), dtype=polars.UInt16
                     ),
                     "index": polars.Series(np.arange(len(data)), dtype=polars.UInt16),
-                    "values": polars.Series(data, dtype=polars.Float32),
+                    "values": polars.Series(data, dtype=polars.Float64),
                 }
             )
 

@@ -41,8 +41,8 @@ def obs() -> polars.DataFrame:
             "observation_key": "OBSERVATION",
             "report_step": polars.Series(np.full(3, 0), dtype=polars.UInt16),
             "index": polars.Series([0, 1, 2], dtype=polars.UInt16),
-            "observations": polars.Series([1.0, 1.0, 1.0], dtype=polars.Float32),
-            "std": polars.Series([0.1, 1.0, 10.0], dtype=polars.Float32),
+            "observations": polars.Series([1.0, 1.0, 1.0], dtype=polars.Float64),
+            "std": polars.Series([0.1, 1.0, 10.0], dtype=polars.Float64),
         }
     )
 

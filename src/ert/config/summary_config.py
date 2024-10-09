@@ -54,7 +54,7 @@ class SummaryConfig(ResponseConfig):
             {
                 "response_key": keys,
                 "time": [time_map_series for _ in data],
-                "values": [polars.Series(row, dtype=polars.Float32) for row in data],
+                "values": [polars.Series(row, dtype=polars.Float64) for row in data],
             }
         )
         df = df.explode("values", "time")

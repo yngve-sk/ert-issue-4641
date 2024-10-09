@@ -48,9 +48,9 @@ class ObsVector:
                             ),
                             "index": polars.Series(node.indices, dtype=polars.UInt16),
                             "observations": polars.Series(
-                                node.values, dtype=polars.Float32
+                                node.values, dtype=polars.Float64
                             ),
-                            "std": polars.Series(node.stds, dtype=polars.Float32),
+                            "std": polars.Series(node.stds, dtype=polars.Float64),
                         }
                     )
                 )
@@ -80,8 +80,8 @@ class ObsVector:
                     "response_key": actual_response_key,
                     "observation_key": actual_observation_keys,
                     "time": dates_series,
-                    "observations": polars.Series(observations, dtype=polars.Float32),
-                    "std": polars.Series(errors, dtype=polars.Float32),
+                    "observations": polars.Series(observations, dtype=polars.Float64),
+                    "std": polars.Series(errors, dtype=polars.Float64),
                 }
             )
         else:
