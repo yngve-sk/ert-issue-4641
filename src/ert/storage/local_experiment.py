@@ -342,6 +342,18 @@ class LocalExperiment(BaseMode):
 
         return mapping
 
+    @cached_property
+    def response_type_to_response_keys(self) -> Dict[str, List[str]]:
+        result = {}
+
+        for response_key, response_type in self.response_key_to_response_type.items():
+            if response_type not in result:
+                result[response_type] = []
+
+            result[response_type].append(response_key)
+
+        return result
+
     def _has_finalized_response_keys(self, response_type: str):
         return self.response_configuration[response_type].has_finalized_keys
 
@@ -377,3 +389,6 @@ class LocalExperiment(BaseMode):
 
         if self.response_key_to_response_type is not None:
             del self.response_key_to_response_type
+
+        if self.response_type_to_response_keys is not None:
+            del self.response_type_to_response_keys

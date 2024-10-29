@@ -133,7 +133,7 @@ def get_ensemble_responses(
             )
             response_names_with_observations.update(set(obs_with_responses))
 
-    for name in ensemble.get_summary_keyset():
+    for name in ensemble.experiment.response_type_to_response_keys["summary"]:
         response_map[str(name)] = js.RecordOut(
             id=UUID(int=0),
             name=name,

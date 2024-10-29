@@ -168,10 +168,12 @@ def get_internalized_keys(config: EverestConfig, batch_ids: Optional[Set[int]] =
 
             ensemble = experiment.get_ensemble_by_name(case_name)
             if not internal_keys:
-                internal_keys = set(ensemble.get_summary_keyset())
+                internal_keys = set(
+                    ensemble.experiment.response_type_to_response_keys["summary"]
+                )
             else:
                 internal_keys = internal_keys.intersection(
-                    set(ensemble.get_summary_keyset())
+                    set(ensemble.experiment.response_type_to_response_keys["summary"])
                 )
 
     return internal_keys

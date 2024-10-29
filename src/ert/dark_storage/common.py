@@ -77,7 +77,7 @@ def ensemble_parameters(storage: Storage, ensemble_id: UUID) -> List[Dict[str, A
 
 
 def get_response_names(ensemble: Ensemble) -> List[str]:
-    result = ensemble.get_summary_keyset()
+    result = ensemble.experiment.response_type_to_response_keys["summary"]
     result.extend(sorted(gen_data_display_keys(ensemble), key=lambda k: k.lower()))
     return result
 
@@ -287,7 +287,10 @@ def get_observation_keys_for_response(
 
             return filtered["observation_key"].unique().to_list()
 
-    elif displayed_response_key in ensemble.get_summary_keyset():
+    elif (
+        displayed_response_key
+        in ensemble.experiment.response_type_to_response_keys["summary"]
+    ):
         response_key = displayed_key_to_response_key["summary"](displayed_response_key)[
             0
         ]
