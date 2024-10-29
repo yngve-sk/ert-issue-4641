@@ -29,7 +29,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 import polars
-from polars.exceptions import ColumnNotFoundError
 
 
 class _Index(BaseModel):
@@ -502,27 +501,6 @@ class LocalEnsemble(BaseMode):
 
         return [_find_state(i) for i in range(self.ensemble_size)]
 
-    def get_summary_keyset(self) -> List[str]:
-        """
-        Find the first folder with summary data then load the
-        summary keys from this.
-
-        Returns
-        -------
-        keys : list of str
-            List of summary keys.
-        """
-
-        try:
-            summary_data = self.load_responses(
-                "summary",
-                tuple(self.get_realization_list_with_responses("summary")),
-            )
-
-            return sorted(summary_data["response_key"].unique().to_list())
-        except (ValueError, KeyError, ColumnNotFoundError):
-            return []
-
     def _load_single_dataset(
         self,
         group: str,
@@ -696,7 +674,7 @@ class LocalEnsemble(BaseMode):
                 raise IndexError(f"No such realization {realization_index}")
             realizations = [realization_index]
 
-        summary_keys = self.get_summary_keyset()
+        summary_keys = self.experiment.response_type_to_response_keys["summary"]
 
         try:
             df_pl = self.load_responses("summary", tuple(realizations))
