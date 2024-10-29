@@ -342,6 +342,9 @@ class LocalExperiment(BaseMode):
 
         return mapping
 
+    def _has_finalized_response_keys(self, response_type: str):
+        return self.response_configuration[response_type].has_finalized_keys
+
     def _update_response_keys(
         self, response_type: str, response_keys: List[str]
     ) -> None:
@@ -351,11 +354,6 @@ class LocalExperiment(BaseMode):
         that the response config saved in this storage has keys corresponding
         to the actual received responses.
         """
-        if not any(
-            k for k in response_keys if k not in self.response_key_to_response_type
-        ):
-            return None
-
         responses_configuration = self.response_configuration
         if response_type not in responses_configuration:
             raise KeyError(
@@ -363,21 +361,19 @@ class LocalExperiment(BaseMode):
             )
 
         config = responses_configuration[response_type]
+        config.keys = sorted(response_keys)
+        config.has_finalized_keys = True
+        self._storage._write_transaction(
+            self._path / self._responses_file,
+            json.dumps(
+                {
+                    c.response_type: c.to_dict()
+                    for c in responses_configuration.values()
+                },
+                default=str,
+                indent=2,
+            ).encode("utf-8"),
+        )
 
-        new_response_keys = set(response_keys) - set(config.keys)
-
-        if new_response_keys:
-            config.keys = sorted(set(config.keys).union(set(response_keys)))
-            self._storage._write_transaction(
-                self._path / self._responses_file,
-                json.dumps(
-                    {
-                        c.response_type: c.to_dict()
-                        for c in responses_configuration.values()
-                    },
-                    default=str,
-                    indent=2,
-                ).encode("utf-8"),
-            )
-
+        if self.response_key_to_response_type is not None:
             del self.response_key_to_response_type
