@@ -119,7 +119,7 @@ def test_that_saving_response_updates_configs(tmp_path):
 
         summary_df = polars.DataFrame(
             {
-                "response_key": ["FOPR", "FOPT:OP1", " FOPR:OP3", "FLAP", "F*"],
+                "response_key": ["FOPR", "FOPT:OP1", "FOPR:OP3", "FLAP", "F*"],
                 "time": polars.Series(
                     [datetime(2000, 1, i) for i in range(1, 6)]
                 ).dt.cast_time_unit("ms"),
@@ -132,7 +132,25 @@ def test_that_saving_response_updates_configs(tmp_path):
         mapping_before = experiment.response_key_to_response_type
         smry_config_before = experiment.response_configuration["summary"]
 
+        assert not ensemble.experiment._has_finalized_response_keys("summary")
+        assert ensemble.experiment.response_key_to_response_type == {"FOPR": "summary"}
+        assert ensemble.experiment.response_type_to_response_keys == {
+            "summary": ["FOPR"]
+        }
+
         ensemble.save_response("summary", summary_df, 0)
+
+        assert ensemble.experiment._has_finalized_response_keys("summary")
+        assert ensemble.experiment.response_key_to_response_type == {
+            "FOPR:OP3": "summary",
+            "F*": "summary",
+            "FLAP": "summary",
+            "FOPR": "summary",
+            "FOPT:OP1": "summary",
+        }
+        assert ensemble.experiment.response_type_to_response_keys == {
+            "summary": ["F*", "FLAP", "FOPR", "FOPR:OP3", "FOPT:OP1"]
+        }
 
         mapping_after = experiment.response_key_to_response_type
         smry_config_after = experiment.response_configuration["summary"]
@@ -140,12 +158,11 @@ def test_that_saving_response_updates_configs(tmp_path):
         assert set(mapping_before) == {"FOPR"}
         assert set(smry_config_before.keys) == {"*", "FOPR"}
 
-        assert set(mapping_after) == {"FOPR", "FOPT:OP1", " FOPR:OP3", "FLAP", "F*"}
+        assert set(mapping_after) == {"F*", "FOPR", "FOPT:OP1", "FOPR:OP3", "FLAP"}
         assert set(smry_config_after.keys) == {
-            "*",
             "FOPR",
             "FOPT:OP1",
-            " FOPR:OP3",
+            "FOPR:OP3",
             "FLAP",
             "F*",
         }
