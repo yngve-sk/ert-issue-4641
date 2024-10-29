@@ -335,7 +335,7 @@ class LocalExperiment(BaseMode):
         mapping = {}
         for config in self.response_configuration.values():
             for key in config.keys:
-                if key == "*":
+                if "*" in key and not config.has_finalized_keys:
                     continue
 
                 mapping[key] = config.response_type
