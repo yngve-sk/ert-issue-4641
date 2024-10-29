@@ -674,8 +674,6 @@ class LocalEnsemble(BaseMode):
                 raise IndexError(f"No such realization {realization_index}")
             realizations = [realization_index]
 
-        summary_keys = self.experiment.response_type_to_response_keys["summary"]
-
         try:
             df_pl = self.load_responses("summary", tuple(realizations))
 
@@ -693,6 +691,7 @@ class LocalEnsemble(BaseMode):
         )
 
         if keys:
+            summary_keys = self.experiment.response_type_to_response_keys["summary"]
             summary_keys = sorted(
                 [key for key in keys if key in summary_keys]
             )  # ignore keys that doesn't exist

@@ -344,7 +344,7 @@ class LocalExperiment(BaseMode):
 
     @cached_property
     def response_type_to_response_keys(self) -> Dict[str, List[str]]:
-        result = {}
+        result: Dict[str, List[str]] = {}
 
         for response_key, response_type in self.response_key_to_response_type.items():
             if response_type not in result:
@@ -352,10 +352,19 @@ class LocalExperiment(BaseMode):
 
             result[response_type].append(response_key)
 
+        for keys in result.values():
+            keys.sort()
+
         return result
 
-    def _has_finalized_response_keys(self, response_type: str):
-        return self.response_configuration[response_type].has_finalized_keys
+    def _has_finalized_response_keys(self, response_type: str) -> bool:
+        responses_configuration = self.response_configuration
+        if response_type not in responses_configuration:
+            raise KeyError(
+                f"Response type {response_type} does not exist in current responses.json"
+            )
+
+        return responses_configuration[response_type].has_finalized_keys
 
     def _update_response_keys(
         self, response_type: str, response_keys: List[str]
