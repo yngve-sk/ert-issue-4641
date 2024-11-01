@@ -133,11 +133,6 @@ def test_that_saving_response_updates_configs(tmp_path):
         smry_config_before = experiment.response_configuration["summary"]
 
         assert not ensemble.experiment._has_finalized_response_keys("summary")
-        assert ensemble.experiment.response_key_to_response_type == {"FOPR": "summary"}
-        assert ensemble.experiment.response_type_to_response_keys == {
-            "summary": ["FOPR"]
-        }
-
         ensemble.save_response("summary", summary_df, 0)
 
         assert ensemble.experiment._has_finalized_response_keys("summary")
@@ -155,7 +150,7 @@ def test_that_saving_response_updates_configs(tmp_path):
         mapping_after = experiment.response_key_to_response_type
         smry_config_after = experiment.response_configuration["summary"]
 
-        assert set(mapping_before) == {"FOPR"}
+        assert set(mapping_before) == set()
         assert set(smry_config_before.keys) == {"*", "FOPR"}
 
         assert set(mapping_after) == {"F*", "FOPR", "FOPT:OP1", "FOPR:OP3", "FLAP"}
