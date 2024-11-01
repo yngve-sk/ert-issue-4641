@@ -344,7 +344,7 @@ class LocalExperiment(BaseMode):
 
     @cached_property
     def response_type_to_response_keys(self) -> Dict[str, List[str]]:
-        result = {}
+        result: Dict[str, List[str]] = {}
 
         for response_key, response_type in self.response_key_to_response_type.items():
             if response_type not in result:
