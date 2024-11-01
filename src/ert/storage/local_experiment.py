@@ -354,8 +354,14 @@ class LocalExperiment(BaseMode):
 
         return result
 
-    def _has_finalized_response_keys(self, response_type: str):
-        return self.response_configuration[response_type].has_finalized_keys
+    def _has_finalized_response_keys(self, response_type: str) -> bool:
+        responses_configuration = self.response_configuration
+        if response_type not in responses_configuration:
+            raise KeyError(
+                f"Response type {response_type} does not exist in current responses.json"
+            )
+
+        return responses_configuration[response_type].has_finalized_keys
 
     def _update_response_keys(
         self, response_type: str, response_keys: List[str]
