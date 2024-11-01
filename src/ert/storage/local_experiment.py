@@ -334,10 +334,7 @@ class LocalExperiment(BaseMode):
     def response_key_to_response_type(self) -> Dict[str, str]:
         mapping = {}
         for config in self.response_configuration.values():
-            for key in config.keys:
-                if "*" in key and not config.has_finalized_keys:
-                    continue
-
+            for key in config.keys if config.has_finalized_keys else []:
                 mapping[key] = config.response_type
 
         return mapping
