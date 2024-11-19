@@ -164,12 +164,11 @@ def get_internalized_keys(
     internal_keys: Set = set()
     with open_storage(storage_path, "r") as storage:
         for batch_id in batch_ids:
-            case_name = f"batch_{batch_id}"
             experiments = [*storage.experiments]
             assert len(experiments) == 1
             experiment = experiments[0]
 
-            ensemble = experiment.get_ensemble_by_name(case_name)
+            ensemble = experiment.get_ensemble_by_name(f"batch_{batch_id}")
             if not internal_keys:
                 internal_keys = set(
                     ensemble.experiment.response_type_to_response_keys["summary"]

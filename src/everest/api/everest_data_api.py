@@ -69,14 +69,6 @@ class EverestDataAPI:
         )
 
     @property
-    def simulations(self):
-        return list(
-            OrderedDict.fromkeys(
-                [int(sim.simulation) for sim in self._snapshot.simulation_data]
-            )
-        )
-
-    @property
     def control_names(self):
         return [con.name for con in self._snapshot.metadata.controls.values()]
 
@@ -97,7 +89,6 @@ class EverestDataAPI:
                 "function": objective.name,
                 "batch": sim.batch,
                 "realization": sim.realization,
-                "simulation": sim.simulation,
                 "value": sim.objectives[objective.name],
                 "weight": objective.weight,
                 "norm": objective.normalization,
@@ -154,7 +145,7 @@ class EverestDataAPI:
     def summary_values(self, batches=None, keys=None):
         if batches is None:
             batches = self.batches
-        simulations = self.simulations
+
         data_frames = []
         storage = open_storage(self._config.storage_dir, "r")
         experiment = next(storage.experiments)
@@ -169,7 +160,9 @@ class EverestDataAPI:
                 summary = summary.dropna(axis=0, how="all", subset=columns)
                 summary = summary.dropna(axis=1, how="all")
                 summary = summary[
-                    summary.index.get_level_values("Realization").isin(simulations)
+                    summary.index.get_level_values("Realization").isin(
+                        self.realizations
+                    )
                 ]
                 summary.reset_index(inplace=True)
                 summary["batch"] = batch_id

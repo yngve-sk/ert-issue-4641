@@ -149,7 +149,7 @@ class BatchContext:
         self._scheduler = Scheduler(driver, max_running=self.queue_config.max_running)
 
         # fill in the missing geo_id data
-        self.substitutions["<CASE_NAME>"] = _slug(self.ensemble.name)
+        #        self.substitutions["<CASE_NAME>"] = _slug(self.ensemble.name)
         for sim_id, (geo_id, _) in enumerate(self.case_data):
             if self.mask[sim_id]:
                 self.substitutions[f"<GEO_ID_{sim_id}_{self.itr}>"] = str(geo_id)

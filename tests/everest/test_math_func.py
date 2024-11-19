@@ -7,6 +7,7 @@ import pytest
 
 from ert.run_models.everest_run_model import EverestRunModel
 from everest import ConfigKeys as CK
+from everest.api import EverestDataAPI
 from everest.config import EverestConfig
 from everest.config.export_config import ExportConfig
 from everest.export import export_data
@@ -28,6 +29,8 @@ def test_math_func_multiobj(
     evaluator_server_config = evaluator_server_config_generator(run_model)
     run_model.run_experiment(evaluator_server_config)
 
+    api = EverestDataAPI(config)
+    api.summary_values()
     # Check resulting points
     x, y, z = (run_model.result.controls["point_" + p] for p in ("x", "y", "z"))
     assert x == pytest.approx(0.0, abs=0.05)
