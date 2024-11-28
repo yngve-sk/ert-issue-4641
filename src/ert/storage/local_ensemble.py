@@ -191,7 +191,7 @@ class LocalEnsemble(BaseMode):
     def relative_weights(self) -> str:
         return self._storage.get_experiment(self.experiment_id).relative_weights
 
-    def get_realization_mask_without_failure(self) -> npt.NDArray[np.bool_]:
+    def get_realizations_without_failure(self) -> npt.NDArray[np.bool_]:
         """
         Mask array indicating realizations without any failure.
 
@@ -211,49 +211,17 @@ class LocalEnsemble(BaseMode):
             ]
         )
 
-    def get_realization_mask_with_parameters(self) -> npt.NDArray[np.bool_]:
-        """
-        Mask array indicating realizations with associated parameters.
-
-        Returns
-        -------
-        parameters : ndarray of bool
-            Boolean array where True means parameters are associated.
-        """
-
-        return np.array(
-            [
-                bool(
-                    {
-                        RealizationStorageState.PARAMETERS_LOADED,
-                        RealizationStorageState.RESPONSES_LOADED,
-                    }.intersection(state)
-                )
-                for state in self.get_ensemble_state()
-            ]
-        )
-
-    def get_realization_mask_with_responses(self) -> npt.NDArray[np.bool_]:
-        """
-        Mask array indicating realizations with associated responses.
-
-        Parameters
-        ----------
-        key : str, optional
-            Response key to filter realizations. If None, all responses are considered.
-
-        Returns
-        -------
-        masks : ndarray of bool
-            Boolean array where True means responses are associated.
-        """
-
-        return np.array(
-            [
-                RealizationStorageState.RESPONSES_LOADED in state
-                for state in self.get_ensemble_state()
-            ]
-        )
+    def get_realizations_with_parameters(self) -> Set[int]:
+        return {
+            i
+            for i, state in enumerate(self.get_ensemble_state())
+            if bool(
+                {
+                    RealizationStorageState.PARAMETERS_LOADED,
+                    RealizationStorageState.RESPONSES_LOADED,
+                }.intersection(state)
+            )
+        }
 
     def is_initalized(self) -> List[int]:
         """
@@ -297,7 +265,7 @@ class LocalEnsemble(BaseMode):
             if RealizationStorageState.RESPONSES_LOADED in ensemble_state[i]
         ]
 
-    def get_realization_list_with_responses(self) -> List[int]:
+    def get_realizations_with_responses(self) -> Set[int]:
         """
         List of realization indices with associated responses.
 
@@ -312,8 +280,11 @@ class LocalEnsemble(BaseMode):
             List of realization indices with associated responses.
         """
 
-        mask = self.get_realization_mask_with_responses()
-        return np.where(mask)[0].tolist()
+        return {
+            i
+            for i, state in enumerate(self.get_ensemble_state())
+            if RealizationStorageState.RESPONSES_LOADED in state
+        }
 
     def set_failure(
         self,
@@ -667,7 +638,7 @@ class LocalEnsemble(BaseMode):
             Loaded pandas DataFrame with summary data.
         """
 
-        realizations = self.get_realization_list_with_responses()
+        realizations = self.get_realizations_with_responses()
         if realization_index is not None:
             if realization_index not in realizations:
                 raise IndexError(f"No such realization {realization_index}")
@@ -726,11 +697,9 @@ class LocalEnsemble(BaseMode):
         if realization_index is not None:
             realizations = np.array([realization_index])
         else:
-            ens_mask = (
-                self.get_realization_mask_with_responses()
-                + self.get_realization_mask_with_parameters()
+            realizations = self.get_realization_mask_with_responses().intersection(
+                self.get_realizations_with_parameters()
             )
-            realizations = np.flatnonzero(ens_mask)
 
         dataframes = []
         gen_kws = [

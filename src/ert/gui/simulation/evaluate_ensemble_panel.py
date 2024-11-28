@@ -84,10 +84,12 @@ class EvaluateEnsemblePanel(ExperimentConfigPanel):
         self._active_realizations_field.setEnabled(ensemble is not None)
         if ensemble:
             self._realizations_validator.set_ensemble(ensemble)
-            parameters = ensemble.get_realization_mask_with_parameters()
+            parameters = ensemble.get_realizations_with_parameters()
             missing_responses = ~ensemble.get_realization_mask_with_responses()
-            failures = ~ensemble.get_realization_mask_without_failure()
+            failures = ~ensemble.get_realizations_without_failure()
             mask = np.logical_and(
                 parameters, np.logical_or(missing_responses, failures)
             )
-            self._active_realizations_field.model.setValueFromMask(mask)  # type: ignore
+
+            active_realizations = parameters.intersection(missing_responses.union(failures))
+            self._active_realizations_field.model.setValueFromMask(active_realizations)  # type: ignore

@@ -109,7 +109,7 @@ class ManualUpdatePanel(ExperimentConfigPanel):
         self._active_realizations_field.setEnabled(ensemble is not None)
         if ensemble:
             self._realizations_validator.set_ensemble(ensemble)
-            parameters = ensemble.get_realization_mask_with_parameters()
+            parameters = ensemble.get_realizations_with_parameters()
             responses = ensemble.get_realization_mask_with_responses()
             mask = np.logical_and(parameters, responses)
             self._active_realizations_field.model.setValueFromMask(mask)  # type: ignore

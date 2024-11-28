@@ -226,7 +226,7 @@ class _EnsembleWidget(QWidget):
         response_key = obs["response_key"].unique().to_list()[0]
         response_ds = self._ensemble.load_responses(
             response_key,
-            tuple(self._ensemble.get_realization_list_with_responses()),
+            tuple(self._ensemble.get_realizations_with_responses()),
         )
 
         scaling_df = self._ensemble.load_observation_scaling_factors()

@@ -28,7 +28,7 @@ class ExportMisfitDataJob(ErtScript):
     ) -> None:
         target_file = "misfit.hdf" if not workflow_args else workflow_args[0]
 
-        realizations = ensemble.get_realization_list_with_responses()
+        realizations = ensemble.get_realizations_with_responses()
 
         from ert import LibresFacade  # noqa: PLC0415 (circular import)
 

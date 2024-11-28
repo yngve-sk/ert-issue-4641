@@ -125,7 +125,7 @@ def data_for_key(
         if response_type == "summary":
             summary_data = ensemble.load_responses(
                 response_key,
-                tuple(ensemble.get_realization_list_with_responses()),
+                tuple(ensemble.get_realizations_with_responses()),
             )
             if summary_data.is_empty():
                 return pd.DataFrame()

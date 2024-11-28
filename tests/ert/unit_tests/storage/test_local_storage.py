@@ -806,9 +806,7 @@ class StatefulStorageTest(RuleBasedStateMachine):
         fields = [p for p in parameters if isinstance(p, Field)]
 
         assume(
-            not storage_ensemble.get_realization_mask_with_parameters()[
-                self.iens_to_edit
-            ]
+            not storage_ensemble.get_realizations_with_parameters()[self.iens_to_edit]
         )
         for f in fields:
             with (
@@ -829,7 +827,7 @@ class StatefulStorageTest(RuleBasedStateMachine):
                 )
 
             assert temp_file.entered
-        assert not storage_ensemble.get_realization_mask_with_parameters()[
+        assert not storage_ensemble.get_realizations_with_parameters()[
             self.iens_to_edit
         ]
 

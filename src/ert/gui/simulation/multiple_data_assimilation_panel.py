@@ -259,7 +259,7 @@ class MultipleDataAssimilationPanel(ExperimentConfigPanel):
     def _realizations_from_fs(self) -> None:
         ensemble = self._ensemble_selector.selected_ensemble
         if ensemble:
-            mask = ensemble.get_realization_mask_with_parameters()
+            mask = ensemble.get_realizations_with_parameters()
             self._active_realizations_field.model.setValueFromMask(mask)  # type: ignore
 
 
