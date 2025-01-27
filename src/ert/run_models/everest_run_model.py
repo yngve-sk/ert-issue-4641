@@ -37,6 +37,7 @@ from everest.simulator.everest_to_ert import everest_to_ert_config
 from everest.strings import EVEREST
 
 from ..run_arg import RunArg, create_run_arguments
+from ..storage.everest_ensemble import EverestRealizationInfo
 from ..storage.everest_experiment import EverestExperiment
 from .base_run_model import BaseRunModel, StatusEvents
 
@@ -383,6 +384,46 @@ class EverestRunModel(BaseRunModel):
             ensemble_size=len(batch_data),
         )
         ert_ensemble = everest_ensemble.ert_ensemble
+
+        realizations = self._everest_config.model.realizations
+        num_perturbations = (
+            1
+            if self._everest_config.optimization is None
+            else self._everest_config.optimization.perturbation_num or 1
+        )
+
+        realization_mapping: dict[int, EverestRealizationInfo] = {}
+
+        if len(evaluator_context.realizations) == len(realizations):
+            # Function evaluation
+            realization_mapping = {
+                i: EverestRealizationInfo(geo_realization=real, perturbation=None)
+                for i, real in enumerate(realizations)
+            }
+        elif len(evaluator_context.realizations) == num_perturbations:
+            realization_mapping = {
+                p: EverestRealizationInfo(geo_realization=real, perturbation=p)
+                for p, real in enumerate(realizations)
+            }
+        else:
+            # Function and gradient
+            for i, real in enumerate(realizations):
+                realization_mapping[i] = EverestRealizationInfo(
+                    geo_realization=real, perturbation=None
+                )
+
+            i = len(realization_mapping)
+            for real in realizations:
+                for p in range(num_perturbations or 1):
+                    realization_mapping[i] = EverestRealizationInfo(
+                        geo_realization=real, perturbation=p
+                    )
+                    i += 1
+
+        # Fill in data from ROPT here
+        everest_ensemble.save_realization_mapping(
+            realization_mapping=realization_mapping
+        )
         for sim_id, controls in enumerate(batch_data.values()):
             self._setup_sim(sim_id, controls, ert_ensemble)
 
