@@ -16,6 +16,7 @@ from types import TracebackType
 from typing import TYPE_CHECKING, Any, Protocol
 
 import numpy as np
+import polars
 import seba_sqlite.sqlite_storage
 from numpy import float64
 from numpy._typing import NDArray
@@ -394,6 +395,7 @@ class EverestRunModel(BaseRunModel):
 
         realization_mapping: dict[int, EverestRealizationInfo] = {}
 
+        realization_mapping: dict[int, EverestRealizationInfo] = {}
         if len(evaluator_context.realizations) == len(realizations):
             # Function evaluation
             realization_mapping = {
@@ -465,6 +467,24 @@ class EverestRunModel(BaseRunModel):
     def _get_cached_results(
         self, control_values: NDArray[np.float64], evaluator_context: EvaluatorContext
     ) -> dict[int, Any]:
+        assert self._experiment is not None
+
+        control_groups = {c.name: c for c in self._everest_config.controls}
+        control_variables = {g: len(c.variables) for g, c in control_groups.items()}
+        control_group_spans: list[tuple[int, int]] = []
+        span_: int = 0
+        for num_vars in control_variables.values():
+            control_group_spans.append((span_, span_ + int(num_vars)))
+            span_ += int(num_vars)
+
+        def controls_1d_to_dict(values_: list[float]) -> dict[str, list[float]]:
+            return {
+                group: values_[span_[0] : span_[1]]
+                for group, span_ in zip(
+                    control_groups, control_group_spans, strict=False
+                )
+            }
+
         cached_results: dict[int, Any] = {}
         if self._simulator_cache is not None:
             for control_idx, real_idx in enumerate(evaluator_context.realizations):
@@ -474,7 +494,57 @@ class EverestRunModel(BaseRunModel):
                 )
                 if cached_data is not None:
                     cached_results[control_idx] = cached_data
-        return cached_results
+
+        cached_results2: dict[int, Any] = {}
+        for control_values_ in control_values.tolist():
+            parameter_group_values = controls_1d_to_dict(control_values_)
+
+            # If several realizations have the same controls,
+            # but different responses, make sure to not get stuck
+            # on the first found realization.
+            ert_realization, matching_ensemble = (
+                self._experiment.find_realization_with_data(
+                    parameter_group_values, exclude=cached_results2.keys()
+                )
+            )
+            if ert_realization is not None:
+                assert matching_ensemble is not None
+                responses = matching_ensemble.ert_ensemble.load_responses(
+                    "gen_data", (ert_realization,)
+                )
+                objectives = responses.filter(
+                    polars.col("response_key").is_in(
+                        self._everest_config.objective_names
+                    )
+                )["values"]
+
+                constraints = responses.filter(
+                    polars.col("response_key").is_in(
+                        self._everest_config.constraint_names
+                    )
+                )["values"]
+
+                cached_data = (
+                    objectives.to_numpy() * -1,
+                    constraints.to_numpy() if not constraints.is_empty() else None,
+                )
+                cached_results2[ert_realization] = cached_data
+
+        # Redundant double-checking for sanity, to be removed
+        # +--------------------------------------------------------+
+        for k, expected in cached_results.items():
+            actual_objs, actual_constrs = cached_results2[k]
+            exp_objs, exp_constrs = expected
+            if not np.allclose(actual_objs, exp_objs, atol=1e-6):
+                print("Something wrong with caching!")
+
+            if actual_constrs != exp_constrs and not np.allclose(
+                actual_constrs, exp_constrs, atol=1e-6
+            ):
+                print("Something wrong with caching!")
+        # +--------------------------------------------------------+
+
+        return cached_results2
 
     def _init_batch_data(
         self,
