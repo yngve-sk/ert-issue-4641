@@ -7,7 +7,6 @@ import logging
 import os
 import queue
 import shutil
-from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import IntEnum
@@ -126,14 +125,6 @@ class EverestRunModel(BaseRunModel):
         self._fm_errors: dict[int, dict[str, Any]] = {}
         self._result: OptimalResult | None = None
         self._exit_code: EverestExitCode | None = None
-        self._simulator_cache = (
-            SimulatorCache()
-            if (
-                everest_config.simulator is not None
-                and everest_config.simulator.enable_cache
-            )
-            else None
-        )
         self._experiment: EverestExperiment | None = None
         self._eval_server_cfg: EvaluatorServerConfig | None = None
         self._batch_id: int = 0
@@ -394,8 +385,6 @@ class EverestRunModel(BaseRunModel):
         )
 
         realization_mapping: dict[int, EverestRealizationInfo] = {}
-
-        realization_mapping: dict[int, EverestRealizationInfo] = {}
         if len(evaluator_context.realizations) == len(realizations):
             # Function evaluation
             realization_mapping = {
@@ -450,15 +439,6 @@ class EverestRunModel(BaseRunModel):
             control_values, batch_data, results, cached_results
         )
 
-        # Add the results from the evaluations to the cache:
-        self._add_results_to_cache(
-            control_values,
-            evaluator_context,
-            batch_data,
-            evaluator_result.objectives,
-            evaluator_result.constraints,
-        )
-
         # Increase the batch ID for the next evaluation:
         self._batch_id += 1
 
@@ -484,16 +464,6 @@ class EverestRunModel(BaseRunModel):
                     control_groups, control_group_spans, strict=False
                 )
             }
-
-        cached_results: dict[int, Any] = {}
-        if self._simulator_cache is not None:
-            for control_idx, real_idx in enumerate(evaluator_context.realizations):
-                cached_data = self._simulator_cache.get(
-                    self._everest_config.model.realizations[real_idx],
-                    control_values[control_idx, :],
-                )
-                if cached_data is not None:
-                    cached_results[control_idx] = cached_data
 
         cached_results2: dict[int, Any] = {}
         for control_values_ in control_values.tolist():
@@ -529,20 +499,6 @@ class EverestRunModel(BaseRunModel):
                     constraints.to_numpy() if not constraints.is_empty() else None,
                 )
                 cached_results2[ert_realization] = cached_data
-
-        # Redundant double-checking for sanity, to be removed
-        # +--------------------------------------------------------+
-        for k, expected in cached_results.items():
-            actual_objs, actual_constrs = cached_results2[k]
-            exp_objs, exp_constrs = expected
-            if not np.allclose(actual_objs, exp_objs, atol=1e-6):
-                print("Something wrong with caching!")
-
-            if actual_constrs != exp_constrs and not np.allclose(
-                actual_constrs, exp_constrs, atol=1e-6
-            ):
-                print("Something wrong with caching!")
-        # +--------------------------------------------------------+
 
         return cached_results2
 
@@ -728,15 +684,14 @@ class EverestRunModel(BaseRunModel):
                 batch_data,
             )
 
-        if self._simulator_cache is not None:
-            for control_idx, (
-                cached_objectives,
-                cached_constraints,
-            ) in cached_results.items():
-                objectives[control_idx, ...] = cached_objectives
-                if constraints is not None:
-                    assert cached_constraints is not None
-                    constraints[control_idx, ...] = cached_constraints
+        for control_idx, (
+            cached_objectives,
+            cached_constraints,
+        ) in cached_results.items():
+            objectives[control_idx, ...] = cached_objectives
+            if constraints is not None:
+                assert cached_constraints is not None
+                constraints[control_idx, ...] = cached_constraints
 
         sim_ids = np.full(control_values.shape[0], -1, dtype=np.intc)
         sim_ids[list(batch_data.keys())] = np.arange(len(batch_data), dtype=np.intc)
@@ -762,25 +717,6 @@ class EverestRunModel(BaseRunModel):
                 dtype=np.float64,
             )
         return values
-
-    def _add_results_to_cache(
-        self,
-        control_values: NDArray[np.float64],
-        evaluator_context: EvaluatorContext,
-        batch_data: dict[int, Any],
-        objectives: NDArray[np.float64],
-        constraints: NDArray[np.float64] | None,
-    ) -> None:
-        if self._simulator_cache is not None:
-            for control_idx in batch_data:
-                self._simulator_cache.add(
-                    self._everest_config.model.realizations[
-                        evaluator_context.realizations[control_idx]
-                    ],
-                    control_values[control_idx, ...],
-                    objectives[control_idx, ...],
-                    None if constraints is None else constraints[control_idx, ...],
-                )
 
     def check_if_runpath_exists(self) -> bool:
         return (
@@ -863,55 +799,3 @@ class EverestRunModel(BaseRunModel):
         elif fm_id not in self._fm_errors[error_hash]["ids"]:
             self._fm_errors[error_hash]["ids"].append(fm_id)
             error_id = self._fm_errors[error_hash]["error_id"]
-            fm_logger.error(err_msg.format("Already reported as", error_id))
-
-
-class SimulatorCache:
-    EPS = float(np.finfo(np.float32).eps)
-
-    def __init__(self) -> None:
-        self._data: defaultdict[
-            int,
-            list[
-                tuple[
-                    NDArray[np.float64], NDArray[np.float64], NDArray[np.float64] | None
-                ]
-            ],
-        ] = defaultdict(list)
-
-    def add(
-        self,
-        realization: int,
-        control_values: NDArray[np.float64],
-        objectives: NDArray[np.float64],
-        constraints: NDArray[np.float64] | None,
-    ) -> None:
-        """Add objective and constraints for a given realization and control values.
-
-        The realization is the index of the realization in the ensemble, as specified
-        in by the realizations entry in the everest model configuration. Both the control
-        values and the realization are used as keys to retrieve the objectives and
-        constraints later.
-        """
-        self._data[realization].append(
-            (
-                control_values.copy(),
-                objectives.copy(),
-                None if constraints is None else constraints.copy(),
-            ),
-        )
-
-    def get(
-        self, realization: int, controls: NDArray[np.float64]
-    ) -> tuple[NDArray[np.float64], NDArray[np.float64] | None] | None:
-        """Get objective and constraints for a given realization and control values.
-
-        The realization is the index of the realization in the ensemble, as specified
-        in by the realizations entry in the everest model configuration. Both the control
-        values and the realization are used as keys to retrieve the objectives and
-        constraints from the cached values.
-        """
-        for control_values, objectives, constraints in self._data.get(realization, []):
-            if np.allclose(controls, control_values, rtol=0.0, atol=self.EPS):
-                return objectives, constraints
-        return None
