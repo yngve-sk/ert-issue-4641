@@ -377,39 +377,20 @@ class EverestRunModel(BaseRunModel):
         )
         ert_ensemble = everest_ensemble.ert_ensemble
 
-        realizations = self._everest_config.model.realizations
-        num_perturbations = (
-            1
-            if self._everest_config.optimization is None
-            else self._everest_config.optimization.perturbation_num or 1
-        )
-
-        realization_mapping: dict[int, EverestRealizationInfo] = {}
-        if len(evaluator_context.realizations) == len(realizations):
-            # Function evaluation
-            realization_mapping = {
-                i: EverestRealizationInfo(geo_realization=real, perturbation=None)
-                for i, real in enumerate(realizations)
-            }
-        elif len(evaluator_context.realizations) == num_perturbations:
-            realization_mapping = {
-                p: EverestRealizationInfo(geo_realization=real, perturbation=p)
-                for p, real in enumerate(realizations)
-            }
-        else:
-            # Function and gradient
-            for i, real in enumerate(realizations):
-                realization_mapping[i] = EverestRealizationInfo(
-                    geo_realization=real, perturbation=None
-                )
-
-            i = len(realization_mapping)
-            for real in realizations:
-                for p in range(num_perturbations or 1):
-                    realization_mapping[i] = EverestRealizationInfo(
-                        geo_realization=real, perturbation=p
+        realization_mapping: dict[int, EverestRealizationInfo] = {
+            idx: EverestRealizationInfo(
+                geo_realization=self._everest_config.model.realizations[real],
+                perturbation=(
+                    evaluator_context.perturbations[idx]
+                    if (
+                        evaluator_context.perturbations is not None
+                        and evaluator_context.perturbations[idx] >= 0
                     )
-                    i += 1
+                    else None
+                ),
+            )
+            for idx, real in enumerate(evaluator_context.realizations)
+        }
 
         # Fill in data from ROPT here
         everest_ensemble.save_realization_mapping(
