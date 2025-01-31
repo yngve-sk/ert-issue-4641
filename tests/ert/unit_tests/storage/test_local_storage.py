@@ -637,7 +637,27 @@ def test_write_transaction_overwrites(tmp_path):
         assert path.read_bytes() == b"deadbeaf"
 
 
-def test_asof_joining_summary(tmp_path):
+@pytest.mark.parametrize(
+    "perturb_observations, perturb_responses",
+    [
+        pytest.param(
+            False,
+            True,
+            id="Perturbed responses",
+        ),
+        pytest.param(
+            True,
+            False,
+            id="Perturbed observations",
+        ),
+        pytest.param(
+            True,
+            False,
+            id="Perturbed observations & responses",
+        ),
+    ],
+)
+def test_asof_joining_summary(tmp_path, perturb_observations, perturb_responses):
     with open_storage(tmp_path, mode="w") as storage:
         response_keys = ["FOPR", "FOPT_OP1", "FOPR:OP3", "FLAP", "F*"]
         obs_keys = [f"o_{k}" for k in response_keys]
@@ -680,20 +700,6 @@ def test_asof_joining_summary(tmp_path):
             }
         )
 
-        perturbed_summary = summary_df.with_columns(
-            polars.when(polars.arange(0, summary_df.height) % 2 != 0)
-            .then(polars.col("time") + polars.duration(milliseconds=500))
-            .otherwise(polars.col("time") - polars.duration(milliseconds=500))
-            .alias("time")
-        )
-
-        perturbed_observations = summary_observations.with_columns(
-            polars.when(polars.arange(0, summary_observations.height) % 2 != 0)
-            .then(polars.col("time") + polars.duration(milliseconds=500))
-            .otherwise(polars.col("time") - polars.duration(milliseconds=500))
-            .alias("time")
-        )
-
         ensemble.save_response("summary", summary_df, 0)
         iens_active_index = np.array([0])
 
@@ -701,38 +707,31 @@ def test_asof_joining_summary(tmp_path):
             obs_keys, iens_active_index
         )
 
-        ensemble.save_response("summary", perturbed_summary, 0)
-        obs_and_responses_perturbed_resp = ensemble.get_observations_and_responses(
-            obs_keys, iens_active_index
-        )
+        if perturb_responses:
+            perturbed_summary = summary_df.with_columns(
+                polars.when(polars.arange(0, summary_df.height) % 2 != 0)
+                .then(polars.col("time") + polars.duration(milliseconds=500))
+                .otherwise(polars.col("time") - polars.duration(milliseconds=500))
+                .alias("time")
+            )
+            ensemble.save_response("summary", perturbed_summary, 0)
 
-        experiment.observations["summary"] = perturbed_observations
+        if perturb_observations:
+            perturbed_observations = summary_observations.with_columns(
+                polars.when(polars.arange(0, summary_observations.height) % 2 != 0)
+                .then(polars.col("time") + polars.duration(milliseconds=500))
+                .otherwise(polars.col("time") - polars.duration(milliseconds=500))
+                .alias("time")
+            )
+            experiment.observations["summary"] = perturbed_observations
+
         obs_and_responses_perturbed = ensemble.get_observations_and_responses(
             obs_keys, iens_active_index
         )
 
-        ensemble.save_response("summary", summary_df, 0)
-        obs_and_responses_perturbed_obs = ensemble.get_observations_and_responses(
-            obs_keys, iens_active_index
+        assert obs_and_responses_exact.drop("index").equals(
+            obs_and_responses_perturbed.drop("index")
         )
-
-        expected_to_be_equal_without_index = [
-            obs_and_responses_exact,
-            obs_and_responses_perturbed_resp,
-            obs_and_responses_perturbed,
-            obs_and_responses_perturbed_obs,
-        ]
-
-        for current in range(1, len(expected_to_be_equal_without_index)):
-            prev = current - 1
-            prev_df = expected_to_be_equal_without_index[prev]
-            current_df = expected_to_be_equal_without_index[current]
-
-            assert current_df.drop("index").equals(prev_df.drop("index"))
-
-        # 1. Perturb observations
-        # 2. Perturb responses
-        # Assert they are all included in the joined/pivoted thing
 
 
 @dataclass
